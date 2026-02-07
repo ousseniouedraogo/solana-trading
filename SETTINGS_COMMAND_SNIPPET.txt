@@ -1,0 +1,29 @@
+// Add this code to solana-bot.js after the processCommand function
+
+// ===== SETTINGS COMMAND =====
+// Add this inside processCommand function, after the existing commands
+
+/*
+ * ADD THIS CODE BLOCK INSIDE processCommand() function
+ * Find a good place after line ~900 where other commands are handled
+ */
+
+// Settings Command Handler - ADD THIS SECTION
+if (command === "/settings" || command === "⚙️ Settings") {
+  try {
+    // Create bot wrapper object for settings module
+    const botWrapper = {
+      sendMessage: async (chatId, text, options) => {
+        await sendMessage(text, options?.parse_mode || 'Markdown', options?.reply_markup, chatId);
+      }
+    };
+    
+    await handleSettingsCommand(botWrapper, userId);
+  } catch (error) {
+    console.error("Error in /settings command:", error);
+    await sendMessage(`❌ *Settings Error*\n\n${error.message}`, 'Markdown', null, userId);
+  }
+  return;
+}
+
+// END OF CODE TO ADD

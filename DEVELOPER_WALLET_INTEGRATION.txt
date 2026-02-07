@@ -1,0 +1,29 @@
+// 1. UPDATE IMPORT (Top of file)
+const {
+  handleSettingsCommand,
+  handleSettingsCallback,
+  userAwaitingDevAddress // <--- ADD THIS
+} = require("./src/telegram/commands/settings");
+
+// 2. SEARCH FOR THIS LINE (inside processCommand function):
+// const selection = userSelections.get(userId);
+
+// 3. ADD THIS CODE RIGHT BEFORE IT:
+
+    // ===== NEW: Handle Developer Address Input =====
+    if (userAwaitingDevAddress && userAwaitingDevAddress.get(userId)) {
+      if (command.startsWith('/')) {
+        // If user sends a command, cancel the input wait
+        userAwaitingDevAddress.delete(userId);
+      } else {
+        userAwaitingDevAddress.delete(userId);
+        await sendMessage("🔄 Processing developer wallet...", 'Markdown', null, userId);
+        // Route to existing add command logic
+        await processCommand(`/add ${command} solana`, userId);
+        return;
+      }
+    }
+    // ===============================================
+
+    // Check if user is in "awaiting address" state...
+    const selection = userSelections.get(userId);
