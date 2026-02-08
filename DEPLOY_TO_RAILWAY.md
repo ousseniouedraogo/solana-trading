@@ -56,3 +56,21 @@ Your bot needs its secrets to function. You must add them manually in Railway.
 
 - **Updates:** Any time you push code to GitHub, Railway will automatically redeploy.
 - **Monitoring:** Check the "Logs" tab in Railway to see your bot's activity in real-time.
+
+## 🔧 Troubleshooting
+
+### MongoDB Connection Error
+If you see `MongoDB connection error: querySrv ENOTFOUND` or `Could not connect to any servers`, follow these steps:
+
+1.  **Whitelist All IPs in MongoDB Atlas:**
+    - Log in to [MongoDB Atlas](https://cloud.mongodb.com/).
+    - Go to **Network Access** (in the left sidebar).
+    - Click **+ Add IP Address**.
+    - Click **Allow Access from Anywhere** (or enter `0.0.0.0/0`).
+    - Click **Confirm**.
+    - *Reason: Railway uses dynamic IP addresses, so you cannot whitelist a single IP.*
+
+2.  **Verify Connection String:**
+    - Ensure your `MONGODB_URI` in Railway Variables is correct.
+    - Format: `mongodb+srv://<username>:<password>@cluster0.xyzA.mongodb.net/?retryWrites=true&w=majority`
+    - **Note:** If your password has special characters (like `@`, `:`, `%`), you MUST URL-encode them (e.g., `@` becomes `%40`).
