@@ -82,7 +82,26 @@ class MintDetector {
     async pollTrackedWallets() {
         try {
             const wallets = await TrackedWallet.find({ isActive: true, role: 'dev_sniper' });
+
+            // --- Synchronization Logic ---
+            const activeAddresses = new Set(wallets.map(w => w.address));
+
+            // 1. Unsubscribe from wallets that were removed from DB
+            for (const address of this.subscriptions.keys()) {
+                if (!activeAddresses.has(address)) {
+                    console.log(`🗑️ Wallet removed from DB, unsubscribing: ${address}`);
+                    this.unsubscribeFromWallet(address);
+                }
+            }
+
+            // 2. Process active wallets
             for (const wallet of wallets) {
+                // Subscribe if not already subscribed (e.g. newly added)
+                if (!this.subscriptions.has(wallet.address)) {
+                    this.subscribeToWallet(wallet.address);
+                }
+
+                // Standard polling check
                 await this.checkWalletTransactions(wallet);
             }
         } catch (error) {
@@ -271,52 +290,19 @@ class MintDetector {
             });
 
             target.notes = `[Auto-Snipe] Last activity by ${wallet.address} via ${type}`;
+
+            // If it's a new mint (no pool yet), we MUST wait for liquidity
+            if (type !== 'liquidity_init') {
+                target.triggerCondition = 'liquidity_added';
+                console.log(`⏳ New mint detected. Setting trigger to 'liquidity_added'.`);
+            }
+
             await target.save();
             console.log(`✅ Snipe Target created for ${metadata.symbol}`);
 
-            // 1.5 Market Cap Filter Check (if enabled)
-            const mcFilterEnabled = process.env.AUTO_SNIPE_MCAP_FILTER === 'true';
-            if (mcFilterEnabled) {
-                console.log(`📊 Checking market cap filter...`);
+            // Market cap filter disabled — buy as soon as liquidity is available
+            console.log(`ℹ️ No market cap filter — proceeding to snipe immediately.`);
 
-                const mcCheck = await marketCapFilter.shouldSnipe(tokenAddress);
-
-                if (!mcCheck.shouldSnipe) {
-                    console.log(`❌ Market cap filter REJECTED: ${mcCheck.reason}`);
-                    console.log(`💰 Market Cap: $${mcCheck.marketCap.toFixed(0)}`);
-
-                    // Update snipe target status to rejected
-                    target.snipeStatus = 'rejected';
-                    target.notes = `[Auto-Snipe REJECTED] ${mcCheck.reason}`;
-                    target.isActive = false;
-                    await target.save();
-
-                    // Send notification to user
-                    try {
-                        const { bot } = require("../../telegram/bot");
-                        await bot.sendMessage(
-                            userId,
-                            `❌ *Snipe Rejected: Market Cap Filter*\n\n` +
-                            `🪙 Token: ${metadata.symbol}\n` +
-                            `📊 Market Cap: $${mcCheck.marketCap.toLocaleString()}\n` +
-                            `🚫 Reason: ${mcCheck.reason}\n` +
-                            `🎯 Target Range: $${marketCapFilter.getConfig().targetMin.toLocaleString()} - $${marketCapFilter.getConfig().targetMax.toLocaleString()}`,
-                            { parse_mode: 'Markdown' }
-                        );
-                    } catch (e) {
-                        console.error("Error sending MC filter notification:", e.message);
-                    }
-
-                    return; // Don't proceed with snipe
-                }
-
-                console.log(`✅ Market cap filter PASSED: ${mcCheck.reason}`);
-                console.log(`💰 Market Cap: $${mcCheck.marketCap.toFixed(0)}`);
-                target.notes += ` | MC: $${mcCheck.marketCap.toFixed(0)}`;
-                await target.save();
-            } else {
-                console.log(`ℹ️  Market cap filter disabled (AUTO_SNIPE_MCAP_FILTER != true)`);
-            }
 
             // 2. Fetch User Wallet
             const userWalletRecord = await UserWallet.findOne({ userId, isActive: true });

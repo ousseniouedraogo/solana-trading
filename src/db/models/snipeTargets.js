@@ -54,7 +54,7 @@ const snipeTargetSchema = new mongoose.Schema(
     },
     snipeStatus: {
       type: String,
-      enum: ["pending", "executed", "failed", "cancelled", "paused", "closed"],
+      enum: ["pending", "executed", "failed", "cancelled", "paused", "closed", "rejected"],
       default: "pending",
       index: true,
     },

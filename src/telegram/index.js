@@ -12,7 +12,7 @@ const initBot = async () => {
   console.log("Initializing Telegram bot...");
 
   // Create bot instance without polling (we'll implement manual polling)
-  bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { 
+  bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, {
     polling: false
   });
 
@@ -22,18 +22,18 @@ const initBot = async () => {
   // Handle messages directly instead of using onText (which doesn't work well with manual polling)
   bot.on('message', (msg) => {
     console.log(`📨 Processing message: "${msg.text}" from chat ${msg.chat.id}`);
-    
+
     if (!msg.text || !msg.text.startsWith('/')) {
       return;
     }
-    
+
     const command = msg.text.trim();
     const parts = command.split(' ');
     const cmd = parts[0];
-    
+
     try {
       console.log(`⚡ Executing command: ${cmd}`);
-      
+
       switch (cmd) {
         case '/start':
           console.log('🚀 Executing /start handler');
@@ -64,6 +64,22 @@ const initBot = async () => {
         case '/snipe_stats':
           commandHandlers.showSnipeStats(bot, msg);
           break;
+        case '/add_dev':
+          if (parts.length > 1) {
+            const match = [command, parts.slice(1).join(' ')];
+            commandHandlers.addDevWallet(bot, msg, match);
+          } else {
+            bot.sendMessage(msg.chat.id, "⚠️ Usage: /add_dev <address>");
+          }
+          break;
+        case '/remove_dev':
+          if (parts.length > 1) {
+            const match = [command, parts.slice(1).join(' ')];
+            commandHandlers.removeDevWallet(bot, msg, match);
+          } else {
+            bot.sendMessage(msg.chat.id, "⚠️ Usage: /remove_dev <address>");
+          }
+          break;
         default:
           // Handle commands with parameters
           if (cmd === '/add' && parts.length > 1) {
@@ -91,7 +107,7 @@ const initBot = async () => {
           }
           break;
       }
-      
+
       console.log(`✅ Command ${cmd} executed successfully`);
     } catch (error) {
       console.error(`❌ Error executing command ${cmd}:`, error);
@@ -102,16 +118,16 @@ const initBot = async () => {
   // Handle callback queries (button presses)
   bot.on('callback_query', async (callbackQuery) => {
     console.log(`🔘 Callback query received: "${callbackQuery.data}" from chat ${callbackQuery.message.chat.id}`);
-    
+
     try {
       await bot.answerCallbackQuery(callbackQuery.id);
       console.log(`✅ Answered callback query: ${callbackQuery.data}`);
-      
+
       await commandHandlers.handleMenuCallback(bot, callbackQuery);
       console.log(`✅ Handled callback query: ${callbackQuery.data}`);
     } catch (error) {
       console.error(`❌ Error handling callback query "${callbackQuery.data}":`, error.message);
-      
+
       // Try to answer the callback query to prevent timeout
       try {
         await bot.answerCallbackQuery(callbackQuery.id, { text: 'Error processing request' });
@@ -127,11 +143,11 @@ const initBot = async () => {
     const chatIdConfig = await BotConfig.findOne({ setting: "chatId" });
     if (chatIdConfig && chatIdConfig.value) {
       console.log(`Found stored chat ID: ${chatIdConfig.value}`);
-      
+
       // Auto-send start message
       setTimeout(async () => {
         try {
-          await commandHandlers.start(bot, { 
+          await commandHandlers.start(bot, {
             chat: { id: chatIdConfig.value },
             from: { first_name: "User" }
           });
@@ -167,7 +183,7 @@ let pollingOffset = 0;
 
 const startManualPolling = async () => {
   console.log("🔄 Starting manual polling...");
-  
+
   const poll = async () => {
     try {
       const updates = await bot.getUpdates({
@@ -178,12 +194,12 @@ const startManualPolling = async () => {
 
       for (const update of updates) {
         pollingOffset = update.update_id + 1;
-        
+
         if (update.message) {
           // Emit message event manually
           bot.emit('message', update.message);
         }
-        
+
         if (update.callback_query) {
           // Emit callback_query event manually
           bot.emit('callback_query', update.callback_query);
@@ -192,11 +208,11 @@ const startManualPolling = async () => {
     } catch (error) {
       console.error("❌ Polling error:", error.message);
     }
-    
+
     // Continue polling
     setTimeout(poll, 1000);
   };
-  
+
   poll();
 };
 

@@ -1017,6 +1017,18 @@ async function processTrackWallet(command, userId) {
     // Start real-time monitoring immediately
     mintDetector.subscribeToWallet(address);
 
+    // Custom message based on role
+    let nextStepsMsg = "";
+    if (role === 'dev_sniper') {
+      nextStepsMsg = `• Bot monitors for **Token Creation** & **Liquidity Pools**
+• Automatically snipes new tokens when liquidity is added
+• Notifications for new mints & snipe execution`;
+    } else {
+      nextStepsMsg = `• Bot monitors all swaps from this wallet
+• Automatically copies profitable trades
+• Notifications for successful copies`;
+    }
+
     await sendMessage(`✅ *Wallet Tracking Started!*
 
 **👀 Now Tracking:**
@@ -1025,9 +1037,7 @@ async function processTrackWallet(command, userId) {
 • **Status:** Active monitoring
 
 **🔄 What happens next:**
-• Bot monitors all swaps from this wallet
-• Automatically copies profitable trades
-• Notifications for successful copies
+${nextStepsMsg}
 
 *Use \`/list_trackers\` to manage tracked wallets.*`, 'Markdown', null, userId);
 
@@ -1675,7 +1685,8 @@ ${error.message}`, 'Markdown', null, userId);
 async function processOverallStats(userId) {
   try {
     const hasWallet = await checkWalletSetup(userId);
-    const trackerCount = await TrackedWallet.countDocuments({ chain: 'solana', isActive: true });
+    const copyTradingCount = await TrackedWallet.countDocuments({ chain: 'solana', isActive: true, role: 'copy_trading' });
+    const devSniperCount = await TrackedWallet.countDocuments({ chain: 'solana', isActive: true, role: 'dev_sniper' });
     const snipeCount = await SnipeTarget.countDocuments({ userId: userId, isActive: true });
 
     await sendMessage(`📊 *Overall Statistics*
@@ -1689,8 +1700,12 @@ async function processOverallStats(userId) {
 • **Configured:** ${hasWallet ? '✅ Ready' : '⚠️ Setup Required'}
 
 **👀 Copy Trading:**
-• **Tracked Wallets:** ${trackerCount}
-• **Status:** ${trackerCount > 0 ? '🔄 Monitoring' : '💤 Waiting for trackers'}
+• **Tracked Wallets:** ${copyTradingCount}
+• **Status:** ${copyTradingCount > 0 ? '🔄 Monitoring' : '💤 Waiting for trackers'}
+
+**👨‍💻 Developer Sniper:**
+• **Tracked Devs:** ${devSniperCount}
+• **Status:** ${devSniperCount > 0 ? '🔄 Monitoring new mints' : '💤 No dev wallets tracked'}
 
 **🎯 Sniping:**
 • **Active Targets:** ${snipeCount}

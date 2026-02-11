@@ -475,6 +475,10 @@ class TokenMonitor {
         if (liquidityInfo && liquidityInfo.totalLiquidity >= target.minLiquidity) {
           console.log(`💰 Liquidity threshold met for ${target.tokenSymbol}: ${liquidityInfo.totalLiquidity} SOL`);
 
+          // Market cap filter disabled — snipe immediately when liquidity is found
+          console.log(`ℹ️ Liquidity found for ${target.tokenSymbol} — proceeding to snipe.`);
+
+
           const tokenInfo = {
             address: target.tokenAddress,
             symbol: target.tokenSymbol,

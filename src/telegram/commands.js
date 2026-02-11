@@ -77,7 +77,7 @@ module.exports = {
       }
     };
 
-    bot.sendMessage(chatId, message, { 
+    bot.sendMessage(chatId, message, {
       parse_mode: "Markdown",
       ...menuKeyboard
     });
@@ -125,7 +125,7 @@ module.exports = {
       }
     };
 
-    bot.sendMessage(chatId, message, { 
+    bot.sendMessage(chatId, message, {
       parse_mode: "Markdown",
       ...menuKeyboard
     });
@@ -280,7 +280,7 @@ module.exports = {
 🔄 Processing requests
 
 Use /help to see available commands`;
-      
+
       console.log('Sending status response...');
       bot.sendMessage(chatId, statusMessage, { parse_mode: "Markdown" });
       return;
@@ -341,7 +341,7 @@ Use /help to see available commands`;
       };
 
       const message = formatBotStatus(statusData);
-      
+
       // Cache status for 15 seconds for ultra-fast subsequent requests
       cache.set(statusCacheKey, message, 15000);
 
@@ -410,7 +410,7 @@ Use /help to see available commands`;
 
     try {
       const params = match[1].trim().split(" ");
-      
+
       if (params.length < 2) {
         return bot.sendMessage(
           chatId,
@@ -423,20 +423,20 @@ Use /help to see available commands`;
 
       // Create cache key
       const cacheKey = `tx_${walletAddress}_${chainId}`;
-      
+
       // Check cache first for ultra-fast response
       if (cache.has(cacheKey)) {
         const cachedMessage = cache.get(cacheKey);
-        return bot.sendMessage(chatId, cachedMessage, { 
+        return bot.sendMessage(chatId, cachedMessage, {
           parse_mode: "Markdown",
-          disable_web_page_preview: true 
+          disable_web_page_preview: true
         });
       }
 
       // Validate chain (cache chains too)
       const chainCacheKey = `chain_${chainId}`;
       let chain;
-      
+
       if (cache.has(chainCacheKey)) {
         chain = cache.get(chainCacheKey);
       } else {
@@ -445,7 +445,7 @@ Use /help to see available commands`;
           cache.set(chainCacheKey, chain, 300000); // Cache chains for 5 minutes
         }
       }
-      
+
       if (!chain) {
         return bot.sendMessage(
           chatId,
@@ -457,7 +457,7 @@ Use /help to see available commands`;
       bot.sendMessage(chatId, `⚡ Fetching recent transactions for ${walletAddress} on ${chainId}...`);
 
       let transactions = [];
-      
+
       if (chain.type === "evm") {
         transactions = await getEvmTransactions(walletAddress, chain, 10);
       } else if (chain.type === "solana") {
@@ -470,13 +470,13 @@ Use /help to see available commands`;
       }
 
       const message = formatTransactionList(transactions, walletAddress);
-      
+
       // Cache the result for 60 seconds for ultra-fast subsequent requests
       cache.set(cacheKey, message, 60000);
-      
-      bot.sendMessage(chatId, message, { 
+
+      bot.sendMessage(chatId, message, {
         parse_mode: "Markdown",
-        disable_web_page_preview: true 
+        disable_web_page_preview: true
       });
 
     } catch (error) {
@@ -506,7 +506,7 @@ Use /help to see available commands`;
 • \`eth\` - Ethereum • \`base\` - Base • \`polygon\` - Polygon • \`solana\` - Solana
 
 *Example:* \`/transactions 0x123...abc eth\`
-        `, { 
+        `, {
           parse_mode: "Markdown",
           reply_markup: {
             inline_keyboard: [[
@@ -527,20 +527,20 @@ Use /help to see available commands`;
 
       // Create inline keyboard with wallet buttons
       const keyboard = [];
-      
+
       // Add wallet buttons grouped by chain
       Object.keys(walletsByChain).forEach(chain => {
         // Add chain header
-        keyboard.push([{ 
-          text: `📊 ${chain.toUpperCase()} Wallets`, 
-          callback_data: `chain_header_${chain}` 
+        keyboard.push([{
+          text: `📊 ${chain.toUpperCase()} Wallets`,
+          callback_data: `chain_header_${chain}`
         }]);
-        
+
         // Add wallet buttons for this chain
         walletsByChain[chain].forEach(wallet => {
           const shortAddress = `${wallet.address.substring(0, 6)}...${wallet.address.substring(wallet.address.length - 4)}`;
           const label = wallet.label ? ` (${wallet.label})` : '';
-          
+
           keyboard.push([{
             text: `🔍 ${shortAddress}${label}`,
             callback_data: `tx_${wallet.address}_${wallet.chain}`
@@ -587,7 +587,7 @@ You can also use manual input for any wallet address.
         // Show main menu
         await module.exports.start(bot, { chat: { id: chatId } });
         break;
-        
+
       case 'menu_add':
         await bot.sendMessage(chatId, `
 📝 *Add Wallet to Track*
@@ -605,7 +605,7 @@ To add a wallet, use the command:
 \`/add 0x123...abc eth\`
         `, { parse_mode: "Markdown" });
         break;
-        
+
       case 'menu_remove':
         await bot.sendMessage(chatId, `
 🗑️ *Remove Wallet from Tracking*
@@ -617,15 +617,15 @@ To remove a wallet, use the command:
 \`/remove 0x123...abc eth\`
         `, { parse_mode: "Markdown" });
         break;
-        
+
       case 'menu_list':
         await module.exports.listWallets(bot, { chat: { id: chatId } });
         break;
-        
+
       case 'menu_status':
         await module.exports.status(bot, { chat: { id: chatId } });
         break;
-        
+
       case 'menu_balance':
         await bot.sendMessage(chatId, `
 💰 *Check Wallet Balance*
@@ -643,7 +643,7 @@ To check your wallet balance on a specific chain:
 \`/balance eth\`
         `, { parse_mode: "Markdown" });
         break;
-        
+
       case 'menu_transactions':
         await module.exports.showTransactionsMenu(bot, { chat: { id: chatId } });
         break;
@@ -676,7 +676,7 @@ To add a token to snipe, use:
 \`/snipe_add So11111111111111111111111111111111111111112 0.1 15\`
 
 This will snipe 0.1 SOL worth of the token with max 15% slippage.
-        `, { 
+        `, {
           parse_mode: "Markdown",
           reply_markup: {
             inline_keyboard: [[
@@ -730,7 +730,7 @@ This will snipe 0.1 SOL worth of the token with max 15% slippage.
 • Balance verification before execution
 • Slippage protection
 • Comprehensive error handling
-        `, { 
+        `, {
           parse_mode: "Markdown",
           reply_markup: {
             inline_keyboard: [[
@@ -757,7 +757,7 @@ To check recent transactions for any wallet:
 \`/transactions 0x123...abc eth\`
 
 This will show the 10 most recent transactions with timestamps, values, and explorer links.
-        `, { 
+        `, {
           parse_mode: "Markdown",
           reply_markup: {
             inline_keyboard: [[
@@ -767,7 +767,7 @@ This will show the 10 most recent transactions with timestamps, values, and expl
           }
         });
         break;
-        
+
       default:
         // Handle wallet transaction requests (tx_address_chain format)
         if (data.startsWith('tx_') && !data.includes('manual') && !data.includes('chain_header')) {
@@ -775,9 +775,9 @@ This will show the 10 most recent transactions with timestamps, values, and expl
           if (parts.length >= 3) {
             const address = parts.slice(1, -1).join('_'); // Handle addresses with underscores
             const chain = parts[parts.length - 1];
-            
+
             console.log(`Fetching transactions for ${address} on ${chain}`);
-            
+
             // Create a mock match object for the transactions function
             const mockMatch = [`/transactions ${address} ${chain}`, `${address} ${chain}`];
             await module.exports.transactions(bot, { chat: { id: chatId } }, mockMatch);
@@ -794,34 +794,121 @@ This will show the 10 most recent transactions with timestamps, values, and expl
 
 const formatWalletList = (wallets, chains) => {
   if (wallets.length === 0) {
-    return "📝 You're not tracking any wallets yet. Use /add to start tracking a wallet.";
+    return "📝 You're not tracking any wallets yet. Use /add or /add_dev to start tracking.";
   }
 
-  // Group wallets by chain
-  const walletsByChain = {};
+  // Separate wallets by role
+  const copyWallets = wallets.filter(w => !w.role || w.role === 'copy_trading');
+  const devWallets = wallets.filter(w => w.role === 'dev_sniper');
 
-  wallets.forEach((wallet) => {
-    if (!walletsByChain[wallet.chain]) {
-      walletsByChain[wallet.chain] = [];
-    }
-    walletsByChain[wallet.chain].push(wallet);
-  });
+  let message = "";
 
-  let message = "📋 *Currently Tracked Wallets:*\n\n";
-
-  for (const chain in walletsByChain) {
-    const chainInfo = chains.find((c) => c.chainId === chain);
-    message += `*${chainInfo ? chainInfo.name : chain}:*\n`;
-
-    walletsByChain[chain].forEach((wallet) => {
-      const label = wallet.label ? ` (${wallet.label})` : "";
-      message += `- \`${wallet.address}\`${label}\n`;
+  // 1. Dev Sniper Wallets (Priority)
+  if (devWallets.length > 0) {
+    message += "🎯 *Dev Sniper Wallets (New Token Detection):*\n";
+    devWallets.forEach((wallet) => {
+      const status = wallet.isActive ? "✅" : "zzz";
+      message += `${status} \`${wallet.address}\`\n`;
     });
-
     message += "\n";
   }
 
+  // 2. Copy Trading Wallets
+  if (copyWallets.length > 0) {
+    message += "📋 *Copy Trading Wallets:*\n";
+
+    // Group by chain
+    const walletsByChain = {};
+    copyWallets.forEach((wallet) => {
+      if (!walletsByChain[wallet.chain]) walletsByChain[wallet.chain] = [];
+      walletsByChain[wallet.chain].push(wallet);
+    });
+
+    for (const chain in walletsByChain) {
+      const chainInfo = chains.find((c) => c.chainId === chain);
+      message += `*${chainInfo ? chainInfo.name : chain}:*\n`;
+      walletsByChain[chain].forEach((wallet) => {
+        const label = wallet.label ? ` (${wallet.label})` : "";
+        const status = wallet.isActive ? "" : " (Inactive)";
+        message += `- \`${wallet.address}\`${label}${status}\n`;
+      });
+      message += "\n";
+    }
+  }
+
   return message;
+};
+
+// Dev Wallet Management Handlers
+module.exports.addDevWallet = async (bot, msg, match) => {
+  const chatId = msg.chat.id;
+  try {
+    const address = match[1].trim();
+
+    // Basic Solana address validation (base58)
+    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address)) {
+      return bot.sendMessage(chatId, "⚠️ Invalid Solana address format.");
+    }
+
+    // Check if exists
+    let wallet = await TrackedWallet.findOne({ address: address });
+
+    if (wallet) {
+      if (wallet.role === 'dev_sniper' && wallet.isActive) {
+        return bot.sendMessage(chatId, `⚠️ Wallet ${address} is already being tracked as a Dev Sniper.`);
+      }
+      // Update role if it was different or inactive
+      wallet.role = 'dev_sniper';
+      wallet.isActive = true;
+      await wallet.save();
+    } else {
+      // Create new
+      wallet = new TrackedWallet({
+        address: address,
+        chain: 'solana', // Dev sniping is Solana only for now
+        role: 'dev_sniper',
+        isActive: true,
+        addedBy: chatId.toString()
+      });
+      await wallet.save();
+    }
+
+    // Trigger monitoring update immediately
+    const mintDetector = require("../services/sniping/mintDetector");
+    mintDetector.subscribeToWallet(address);
+
+    bot.sendMessage(chatId, `✅ *Dev Sniper Wallet Added*\n\nBot is now tracking \`${address}\` for new token creations and pool initializations.`, { parse_mode: "Markdown" });
+
+  } catch (error) {
+    console.error("Error adding dev wallet:", error);
+    bot.sendMessage(chatId, `❌ Error adding dev wallet: ${error.message}`);
+  }
+};
+
+module.exports.removeDevWallet = async (bot, msg, match) => {
+  const chatId = msg.chat.id;
+  try {
+    const address = match[1].trim();
+
+    const wallet = await TrackedWallet.findOne({ address: address, role: 'dev_sniper' });
+
+    if (!wallet) {
+      return bot.sendMessage(chatId, `⚠️ Wallet ${address} is not tracked as a Dev Sniper.`);
+    }
+
+    wallet.isActive = false;
+    await wallet.save();
+
+    // Stop monitoring
+    const mintDetector = require("../services/sniping/mintDetector");
+    mintDetector.unsubscribeFromWallet(address);
+
+    bot.sendMessage(chatId, `✅ Stopped tracking dev wallet \`${address}\`.`, { parse_mode: "Markdown" });
+
+  } catch (error) {
+    console.error("Error removing dev wallet:", error);
+    bot.sendMessage(chatId, `❌ Error removing dev wallet: ${error.message}`);
+  }
 };
 
 // Sniping command handlers
@@ -983,9 +1070,9 @@ module.exports.snipeList = async (bot, msg) => {
     let message = `🎯 *Active Snipe Targets* (${targets.length})\n\n`;
 
     for (const target of targets) {
-      const statusIcon = target.snipeStatus === "pending" ? "⏳" : 
-                       target.snipeStatus === "paused" ? "⏸️" : "❓";
-      
+      const statusIcon = target.snipeStatus === "pending" ? "⏳" :
+        target.snipeStatus === "paused" ? "⏸️" : "❓";
+
       message += `${statusIcon} **Target ${targets.indexOf(target) + 1}**\n`;
       message += `🪙 Token: \`${target.tokenAddress.substring(0, 20)}...\`\n`;
       message += `💰 Amount: ${target.targetAmount} SOL\n`;
