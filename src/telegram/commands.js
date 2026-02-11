@@ -690,12 +690,8 @@ This will snipe 0.1 SOL worth of the token with max 15% slippage.
         await module.exports.snipeList(bot, { chat: { id: chatId } });
         break;
 
-      case 'snipe_pause':
-        await module.exports.snipePause(bot, { chat: { id: chatId } });
-        break;
-
-      case 'snipe_resume':
-        await module.exports.snipeResume(bot, { chat: { id: chatId } });
+      case 'snipe_history':
+        await module.exports.showSnipeHistory(bot, { chat: { id: chatId } });
         break;
 
       case 'snipe_stats':
@@ -1211,6 +1207,56 @@ module.exports.showSnipeStats = async (bot, msg) => {
   }
 };
 
+module.exports.showSnipeHistory = async (bot, msg) => {
+  const chatId = msg.chat.id;
+  const userId = chatId.toString();
+
+  try {
+    const history = await SnipeExecution.getRecentExecutions(userId, 10);
+
+    if (history.length === 0) {
+      return bot.sendMessage(chatId, "📜 *Snipe History*\n\n📭 No sniping history found.", {
+        parse_mode: "Markdown",
+        reply_markup: {
+          inline_keyboard: [[{ text: "🔄 Sniping Menu", callback_data: "menu_sniping" }]]
+        }
+      });
+    }
+
+    let message = `📜 *Snipe History* (Last 10)\n\n`;
+
+    history.forEach((exec, index) => {
+      const statusIcon = exec.status === "success" ? "✅" : exec.status === "failed" ? "❌" : "⏳";
+      const date = new Date(exec.createdAt).toLocaleString();
+      const amountStr = exec.amountIn ? exec.amountIn.toFixed(4) : "0.0000";
+
+      message += `${index + 1}. ${statusIcon} *${exec.tokenSymbol}*\n`;
+      message += `   └ 📅 ${date}\n`;
+      message += `   └ 💵 Amount: ${amountStr} SOL\n`;
+
+      if (exec.status === "success") {
+        const pnl = exec.profitLoss?.unrealizedPnL || 0;
+        const pnlEmoji = pnl >= 0 ? "🟢" : "🔴";
+        message += `   └ ${pnlEmoji} PnL: ${pnl.toFixed(4)} SOL\n`;
+      } else if (exec.status === "failed") {
+        message += `   └ 🚨 Error: ${exec.errorDetails?.errorCode || "Unknown"}\n`;
+      }
+      message += `\n`;
+    });
+
+    bot.sendMessage(chatId, message, {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [[{ text: "🔄 Back to Sniping Menu", callback_data: "menu_sniping" }]]
+      }
+    });
+
+  } catch (error) {
+    console.error("Error showing snipe history:", error);
+    bot.sendMessage(chatId, `❌ Error loading history: ${error.message}`);
+  }
+};
+
 module.exports.showSnipingMenu = async (bot, msg) => {
   const chatId = msg.chat.id;
   const userId = chatId.toString();
@@ -1235,15 +1281,12 @@ module.exports.showSnipingMenu = async (bot, msg) => {
         { text: "📋 List Targets", callback_data: "snipe_list" }
       ],
       [
-        { text: "⏸️ Pause All", callback_data: "snipe_pause" },
-        { text: "▶️ Resume All", callback_data: "snipe_resume" }
+        { text: "📜 Snipe History", callback_data: "snipe_history" },
+        { text: "📊 Statistics", callback_data: "snipe_stats" }
       ],
       [
-        { text: "📊 Statistics", callback_data: "snipe_stats" },
-        { text: "❓ Snipe Help", callback_data: "snipe_help" }
-      ],
-      [
-        { text: "🔄 Back to Main Menu", callback_data: "menu_main" }
+        { text: "❓ Snipe Help", callback_data: "snipe_help" },
+        { text: "🔄 Main Menu", callback_data: "menu_main" }
       ]
     ];
 

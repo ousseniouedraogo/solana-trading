@@ -1163,8 +1163,8 @@ async function processSnipeAdd(command, userId) {
 
   const tokenAddress = parts[1];
   const amount = parts[2] ? parseFloat(parts[2]) : 0.011;
-  const tp = parts[3] ? parseFloat(parts[3]) : 75;
-  const sl = parts[4] ? parseFloat(parts[4]) : 20;
+  const tp = parts[3] ? parseFloat(parts[3]) : 50;
+  const sl = parts[4] ? parseFloat(parts[4]) : 25;
 
   if (isNaN(amount) || amount < 0.001) {
     await sendMessage("❌ *Invalid Amount*\n\nMinimum amount is 0.001 SOL", 'Markdown', null, userId);
@@ -1441,10 +1441,19 @@ async function processPositions(userId) {
       const profitEmoji = profitPercent >= 0 ? "📈" : "📉";
 
       const symbol = pos.tokenSymbol || "TOKEN";
+      const amountReceived = pos.amountReceived || 0;
+      const costBasis = pos.targetAmount || 0;
+      const currentValue = amountReceived * currentPrice;
       const percentStr = `${profitPercent >= 0 ? '+' : ''}${profitPercent.toFixed(1)}%`;
 
+      message += `🔹 *${symbol}*\n`;
+      message += `└ 💰 Entry: ${entryPrice.toFixed(8)} SOL\n`;
+      message += `└ 📦 Qty: ${amountReceived.toFixed(2)}\n`;
+      message += `└ 💵 Value: ${currentValue.toFixed(4)} SOL (from ${costBasis} SOL)\n`;
+      message += `└ ${profitEmoji} ROI: *${percentStr}*\n\n`;
+
       keyboard.push([{
-        text: `${profitEmoji} ${symbol} (${percentStr})`,
+        text: `⚙️ Manage ${symbol} (${percentStr})`,
         callback_data: `manage_pos_${pos.tokenAddress}`
       }]);
     }
@@ -1791,9 +1800,12 @@ async function showPositionDetails(userId, tokenAddress) {
 
     let message = `🪙 **${position.tokenSymbol || 'Token'} Details**\n\n`;
     message += `📍 **Address:** \`${tokenAddress}\`\n`;
-    message += `💰 **Entry:** ${entryPrice.toFixed(8)} SOL\n`;
-    message += `💵 **Current:** ${currentPrice ? currentPrice.toFixed(8) : "N/A"} SOL\n`;
-    message += `${profitEmoji} **P/L:** ${profitPercent.toFixed(2)}%\n\n`;
+    message += `💰 **Entry Price:** ${entryPrice.toFixed(8)} SOL\n`;
+    message += `📦 **Quantity:** ${position.amountReceived ? position.amountReceived.toFixed(4) : "0"} tokens\n`;
+    message += `💵 **Entry Value:** ${position.targetAmount ? position.targetAmount.toFixed(4) : "0"} SOL\n`;
+    message += `💸 **Current Price:** ${currentPrice ? currentPrice.toFixed(8) : "N/A"} SOL\n`;
+    message += `💎 **Current Value:** ${currentPrice && position.amountReceived ? (currentPrice * position.amountReceived).toFixed(4) : "N/A"} SOL\n`;
+    message += `${profitEmoji} **P/L:** *${profitPercent.toFixed(2)}%*\n\n`;
 
     const isAutoSellEnabled = position.autoSell && position.autoSell.enabled;
     if (isAutoSellEnabled) {

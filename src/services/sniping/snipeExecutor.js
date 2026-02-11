@@ -264,21 +264,25 @@ const executeSnipe = async (target, execution, tokenInfo, customWallet = null) =
 const sendSnipeNotification = async (userId, data) => {
   try {
     // Import here to avoid circular dependency
-    const { bot } = require("../../telegram/bot");
+    const { getActiveChatId } = require("../../telegram/index");
+    const { sendMessage } = require("../../utils/notifier");
+
+    const activeChatId = await getActiveChatId();
+    const adminId = process.env.TELEGRAM_ADMIN_ID || process.env.ADMIN_CHAT_ID;
 
     let message;
 
     if (data.type === 'success') {
-      message = `🎉 *SNIPE SUCCESSFUL!*\n\n` +
-        `🪙 Token: ${data.token.symbol} (${data.token.name})\n` +
-        `💰 Spent: ${data.inputAmount.toFixed(4)} SOL\n` +
-        `📈 Received: ${data.outputAmount.toFixed(2)} ${data.token.symbol}\n` +
-        `💱 Price: ${data.price.toFixed(8)} SOL\n` +
-        `📊 Slippage: ${data.slippage.toFixed(2)}%\n` +
-        `⏱️ Execution Time: ${data.executionTime}ms\n` +
+      message = `🔔 *PURCHASE ALERT (SNIPE)* 🎯\n\n` +
+        `🪙 **Token:** ${data.token.symbol} (${data.token.name})\n` +
+        `💰 **Spent:** ${data.inputAmount.toFixed(4)} SOL\n` +
+        `📈 **Received:** ${data.outputAmount.toFixed(2)} ${data.token.symbol}\n` +
+        `💱 **Price:** ${data.price.toFixed(8)} SOL\n` +
+        `📊 **Slippage:** ${data.slippage.toFixed(2)}%\n` +
+        `⏱️ **Execution Time:** ${data.executionTime}ms\n` +
         `🔗 [View Transaction](https://solscan.io/tx/${data.txHash})`;
     } else {
-      message = `❌ *SNIPE FAILED*\n\n` +
+      message = `❌ *SNIPE ATTEMPT FAILED* ❌\n\n` +
         `🪙 Token: ${data.token.symbol}\n` +
         `💰 Target Amount: ${data.targetAmount} SOL\n` +
         `🚨 Error: ${data.error}\n` +
@@ -286,10 +290,27 @@ const sendSnipeNotification = async (userId, data) => {
         `⏱️ Execution Time: ${data.executionTime}ms`;
     }
 
-    await bot.sendMessage(userId, message, {
+    // Send to the user who triggered it
+    await sendMessage(userId, message, {
       parse_mode: 'Markdown',
       disable_web_page_preview: true
     });
+
+    // Also send to admin if different
+    if (adminId && adminId !== userId) {
+      await sendMessage(adminId, `👤 *User ${userId} Notification:*\n${message}`, {
+        parse_mode: 'Markdown',
+        disable_web_page_preview: true
+      });
+    }
+
+    // Also send to globally active chat ID if different from both
+    if (activeChatId && activeChatId !== userId && activeChatId !== adminId) {
+      await sendMessage(activeChatId, message, {
+        parse_mode: 'Markdown',
+        disable_web_page_preview: true
+      });
+    }
 
   } catch (error) {
     console.error("❌ Error sending snipe notification:", error);

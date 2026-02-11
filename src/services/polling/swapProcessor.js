@@ -28,43 +28,31 @@ const sendNotification = async (
   message,
   options = { parse_mode: "Markdown" }
 ) => {
-  let messageSent = false;
-
   try {
+    const adminId = process.env.TELEGRAM_ADMIN_ID || process.env.ADMIN_CHAT_ID;
+
     // First, try to get chat ID from database
     const chatIdConfig = await BotConfig.findOne({ setting: "chatId" });
+    const targetChatId = (chatIdConfig && chatIdConfig.value) || adminId;
 
-    if (chatIdConfig && chatIdConfig.value) {
-      const result = await sendMessage(chatIdConfig.value, message, options);
-      if (result) {
-        messageSent = true;
-        return true;
-      }
-    }
-
-    // If no message was sent and we have an admin chat ID in env, try that as fallback
-    const adminId = process.env.TELEGRAM_ADMIN_ID || process.env.ADMIN_CHAT_ID;
-    if (!messageSent && adminId) {
-      const result = await sendMessage(adminId, message, options);
-      if (result) {
-        messageSent = true;
-        return true;
-      }
-    }
-
-    // If still no success, log it clearly
-    if (!messageSent) {
-      console.error(
-        "❌ NOTIFICATION DELIVERY FAILED: Could not send Telegram message to any chat"
-      );
+    if (!targetChatId) {
+      console.error("❌ NOTIFICATION DELIVERY FAILED: No chat ID found in DB or .env");
       return false;
     }
+
+    const result = await sendMessage(targetChatId, message, options);
+
+    // If it failed and target was DB, try admin as fallback
+    if (!result && chatIdConfig && chatIdConfig.value !== adminId && adminId) {
+      console.log("⚠️ DB Notification failed, trying fallback to ADMIN_CHAT_ID");
+      return await sendMessage(adminId, message, options);
+    }
+
+    return !!result;
   } catch (err) {
     console.error("Error sending notification:", err.message);
     return false;
   }
-
-  return messageSent;
 };
 
 /**

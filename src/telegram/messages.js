@@ -166,7 +166,7 @@ const formatSwapNotification = (swap, ourTxHash, chain) => {
   const processTime = new Date().toLocaleString();
 
   return `
-🔄 *SWAP COPIED* 📊
+🔔 *PURCHASE ALERT (COPY TRADE)* 📋
 
 *Network:* ${chain.name}
 *Wallet:* ${walletLink}
@@ -282,9 +282,8 @@ const formatWalletBalance = (balanceData, chain) => {
       // Add token link if we have the explorer
       let tokenSymbol = token.symbol;
       if (token.address && chain.blockExplorer) {
-        const tokenUrl = `${chain.blockExplorer.replace(/\/$/, "")}/token/${
-          token.address
-        }`;
+        const tokenUrl = `${chain.blockExplorer.replace(/\/$/, "")}/token/${token.address
+          }`;
         tokenSymbol = `[${token.symbol}](${tokenUrl})`;
       }
 
