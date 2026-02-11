@@ -1,4 +1,4 @@
-// Solana-Focused Copy Trading & Sniping Bot
+﻿// Solana-Focused Copy Trading & Sniping Bot
 require("dotenv").config();
 const axios = require("axios");
 const mongoose = require("mongoose");
@@ -182,10 +182,7 @@ function getSnipingKeyboard() {
         { text: "🗑️ Remove Target" }
       ],
       [
-        { text: "⏸️ Pause All" },
-        { text: "▶️ Resume All" }
-      ],
-      [
+        { text: "📜 Snipe History" },
         { text: "🏠 Main Menu" }
       ]
     ],
@@ -639,11 +636,14 @@ Click a button below for instant setup, or use manual format.
     } else if (command === "📍 Target List" || command === "/snipe_list") {
       await processSnipeListWithButtons(userId);
 
-    } else if (command === "� Active Positions" || command === "/positions") {
+    } else if (command.includes("Active Positions") || command === "/positions") {
       await processPositions(userId);
 
-    } else if (command === "�📈 Snipe Stats" || command === "/snipe_stats") {
+    } else if (command.includes("Snipe Stats") || command === "/snipe_stats") {
       await processSnipeStats(userId);
+
+    } else if (command === "📜 Snipe History" || command === "/snipe_history") {
+      await processSnipeHistory(userId);
 
     } else if (command === "🗑️ Remove Target") {
       await sendMessage(`🗑️ *Remove Snipe Target*
@@ -1377,6 +1377,46 @@ You haven't added any snipe targets yet.
   } catch (error) {
     console.error("Error listing snipe targets:", error);
     await sendMessage(`❌ *Error Getting Targets*\n\n${error.message}`, 'Markdown', null, userId);
+  }
+}
+
+async function processSnipeHistory(userId) {
+  try {
+    const history = await SnipeExecution.find({ userId: userId })
+      .sort({ createdAt: -1 })
+      .limit(10);
+
+    if (history.length === 0) {
+      await sendMessage("📜 *Snipe History*\n\n📭 No sniping history found.", 'Markdown', null, userId);
+      return;
+    }
+
+    let message = `📜 *Snipe History* (Last 10)\n\n`;
+
+    history.forEach((exec, index) => {
+      const statusIcon = exec.status === "success" ? "✅" : exec.status === "failed" ? "❌" : "⏳";
+      const date = new Date(exec.createdAt).toLocaleString();
+      const amountStr = exec.amountIn ? exec.amountIn.toFixed(4) : "0.0000";
+
+      message += `${index + 1}. ${statusIcon} *${exec.tokenSymbol || 'Unknown'}*\n`;
+      message += `   └ 📅 ${date}\n`;
+      message += `   └ 💵 Amount: ${amountStr} SOL\n`;
+
+      if (exec.status === "success") {
+        const pnl = exec.profitLoss?.unrealizedPnL || 0;
+        const pnlEmoji = pnl >= 0 ? "🟢" : "🔴";
+        message += `   └ ${pnlEmoji} PnL: ${pnl.toFixed(4)} SOL\n`;
+      } else if (exec.status === "failed") {
+        message += `   └ 🚨 Error: ${exec.errorDetails?.errorCode || "Unknown"}\n`;
+      }
+      message += `\n`;
+    });
+
+    await sendMessage(message, 'Markdown', null, userId);
+
+  } catch (error) {
+    console.error("Error showing snipe history:", error);
+    await sendMessage(`❌ *Error Loading History*\n\n${error.message}`, 'Markdown', null, userId);
   }
 }
 
