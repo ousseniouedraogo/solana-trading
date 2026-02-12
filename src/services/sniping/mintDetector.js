@@ -378,8 +378,8 @@ class MintDetector {
         console.log(`⏰ Starting aggressive polling for ${metadata.symbol} (${tokenAddress.substring(0, 8)})...`);
 
         let attempts = 0;
-        const maxAttempts = 60; // 1 minute of polling
-        const interval = 2000; // Every 2 seconds
+        const maxAttempts = 60; // 5 minutes of polling
+        const interval = 5000; // Increased to 5 seconds to avoid 429 RateLimit
 
         const pollInterval = setInterval(async () => {
             attempts++;

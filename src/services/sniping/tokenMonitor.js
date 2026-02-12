@@ -480,7 +480,7 @@ class TokenMonitor {
       } catch (error) {
         console.error("❌ Error processing snipe targets:", error);
       }
-    }, 3000); // Check every 3 seconds for fast sniping
+    }, 5000); // Increased to 5 seconds for stability
   }
 
   async checkTargetConditions(target) {
