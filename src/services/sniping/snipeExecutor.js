@@ -133,80 +133,74 @@ const executeSnipe = async (target, execution, tokenInfo, customWallet = null) =
     // Serialize the transaction
     const signedTransaction = Buffer.from(transaction.serialize()).toString("base64");
 
-    // Step 4: Execute with Jupiter Ultra API
+    // Step 4: Execute Transaction
     console.log("🚀 Executing snipe transaction...");
     const executeStartTime = Date.now();
+    let txHash = null;
 
-    const { data: executeResponse } = await axios.post(
-      "https://lite-api.jup.ag/ultra/v1/execute",
-      {
-        signedTransaction: signedTransaction,
-        requestId: orderResponse.requestId,
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          'User-Agent': 'SolanaSnipeBot/1.0',
-        },
-        timeout: 15000, // 15 second timeout
+    if (process.env.USE_JITO_BUNDLES === 'true') {
+      const jitoExecutor = require("../execution/jitoExecutor");
+      const jitoResult = await jitoExecutor.sendBundle(transaction, wallet, parseFloat(process.env.JITO_TIP_AMOUNT || 0.001));
+
+      if (jitoResult.success) {
+        txHash = jitoResult.bundleId;
+        console.log(`✅ Jito Bundle submitted: ${txHash}`);
+      } else {
+        console.warn(`⚠️ Jito failed, falling back to Jupiter/Raw: ${jitoResult.error}`);
       }
-    );
+    }
+
+    if (!txHash) {
+      // Use Raw Transaction Submission for maximum speed if Jito skipped/failed
+      if (process.env.SKIP_PREFLIGHT === 'true') {
+        const rawTx = transaction.serialize();
+        txHash = await connection.sendRawTransaction(rawTx, {
+          skipPreflight: true,
+          maxRetries: parseInt(process.env.MAX_RETRIES || 2)
+        });
+        console.log(`⚡ Raw transaction sent: ${txHash}`);
+      } else {
+        // Standard Jupiter execution
+        const { data: executeResponse } = await axios.post(
+          "https://lite-api.jup.ag/ultra/v1/execute",
+          {
+            signedTransaction: Buffer.from(transaction.serialize()).toString("base64"),
+            requestId: orderResponse.requestId,
+          },
+          {
+            headers: {
+              "Content-Type": "application/json",
+              'User-Agent': 'SolanaSnipeBot/1.0',
+            },
+            timeout: 15000,
+          }
+        );
+        if (executeResponse.status === "Success") {
+          txHash = executeResponse.signature;
+        } else {
+          throw new Error(executeResponse.error || "Execution failed");
+        }
+      }
+    }
 
     const executeTime = Date.now() - executeStartTime;
-    console.log(`⏱️  Transaction executed in ${executeTime}ms`);
+    console.log(`⏱️  Transaction submitted in ${executeTime}ms`);
 
-    // Handle execution response
-    if (executeResponse.status === "Success") {
-      const totalExecutionTime = Date.now() - executionStartTime;
+    // Verification of landing (optional for speed, but good for reporting)
+    // In a pro sniper, you'd move to the next snipe and verify in background
 
-      const inputAmountActual =
-        executeResponse.inputAmountResult / Math.pow(10, 9); // SOL decimals
-      const outputAmountActual =
-        executeResponse.outputAmountResult / Math.pow(10, tokenInfo.decimals);
+    console.log(`🎉 SNIPE SUBMITTED!`);
+    console.log(`⏱️  Total time to submission: ${Date.now() - executionStartTime}ms`);
+    console.log(`🔗 Transaction: https://solscan.io/tx/${txHash}`);
 
-      const actualPrice = inputAmountActual / outputAmountActual;
-      const slippageActual = Math.abs((actualPrice - expectedPrice) / expectedPrice) * 100;
-
-      console.log(`🎉 SNIPE SUCCESSFUL!`);
-      console.log(`📊 Input: ${inputAmountActual} SOL`);
-      console.log(`📊 Output: ${outputAmountActual} ${tokenInfo.symbol}`);
-      console.log(`📊 Price: ${actualPrice} SOL per token`);
-      console.log(`📊 Slippage: ${slippageActual.toFixed(2)}%`);
-      console.log(`⏱️  Total execution time: ${totalExecutionTime}ms`);
-      console.log(`🔗 Transaction: https://solscan.io/tx/${executeResponse.signature}`);
-
-      // Send success notification
-      await sendSnipeNotification(target.userId, {
-        type: 'success',
-        token: tokenInfo,
-        inputAmount: inputAmountActual,
-        outputAmount: outputAmountActual,
-        price: actualPrice,
-        slippage: slippageActual,
-        executionTime: totalExecutionTime,
-        txHash: executeResponse.signature
-      });
-
-      return {
-        success: true,
-        txHash: executeResponse.signature,
-        executionPrice: actualPrice,
-        amountOut: outputAmountActual,
-        slippageActual: slippageActual,
-        executionTime: totalExecutionTime,
-        blockNumber: null, // Would need to be fetched separately
-        marketData: {
-          liquiditySOL: orderResponse.liquiditySOL || 0,
-          priceImpact: orderResponse.priceImpact || 0,
-          poolAddress: tokenInfo.poolAddress
-        }
-      };
-
-    } else {
-      throw new Error(
-        `Snipe execution failed: ${executeResponse.error || executeResponse.message || JSON.stringify(executeResponse)}`
-      );
-    }
+    // Simplified success reporting for high speed
+    return {
+      success: true,
+      txHash: txHash,
+      executionPrice: expectedPrice,
+      amountOut: expectedOutputAmount,
+      executionTime: Date.now() - executionStartTime
+    };
 
   } catch (error) {
     const totalExecutionTime = Date.now() - executionStartTime;

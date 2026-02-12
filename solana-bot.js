@@ -24,6 +24,7 @@ const { startSwapFetcher } = require("./src/services/polling/swapFetcher");
 const { startSwapProcessor } = require("./src/services/polling/swapProcessor");
 const TokenMonitor = require("./src/services/sniping/tokenMonitor");
 const mintDetector = require("./src/services/sniping/mintDetector");
+const ProScanner = require("./src/services/sniping/proScanner");
 const positionManager = require("./src/services/execution/positionManager");
 
 // Import Telegram Commands
@@ -2316,6 +2317,11 @@ async function processUpdates() {
     await tokenMonitor.initialize();
 
     await mintDetector.initialize();
+
+    if (process.env.USE_PRO_SCANNER === 'true') {
+      await ProScanner.initialize();
+    }
+
     await positionManager.initialize();
 
     console.log("✅ All background services started successfully");

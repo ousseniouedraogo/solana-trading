@@ -58,11 +58,16 @@ class TokenMonitor {
 
     console.log("🔄 Starting token monitoring...");
 
-    // Monitor Raydium pool creation
-    this.monitorRaydiumPools();
+    // Only monitor Raydium/Orca if ProScanner is NOT enabled to avoid redundancy
+    if (process.env.USE_PRO_SCANNER !== 'true') {
+      // Monitor Raydium pool creation
+      this.monitorRaydiumPools();
 
-    // Monitor Orca pool creation  
-    this.monitorOrcaPools();
+      // Monitor Orca pool creation  
+      this.monitorOrcaPools();
+    } else {
+      console.log("ℹ️ ProScanner is enabled. Global Raydium/Orca monitoring in TokenMonitor disabled.");
+    }
 
     // Start processing active snipe targets
     this.processSnipeTargets();
