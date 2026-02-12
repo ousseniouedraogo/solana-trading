@@ -978,7 +978,12 @@ module.exports.snipeAdd = async (bot, msg, match) => {
       targetAmount: targetAmount,
       maxSlippage: maxSlippage,
       isActive: true,
-      snipeStatus: "pending"
+      snipeStatus: "pending",
+      autoSell: {
+        enabled: true,
+        takeProfitPercent: 100,
+        stopLossPercent: 50
+      }
     });
 
     console.log("💾 Saving snipe target to database...");

@@ -618,7 +618,12 @@ async function processSnipeAdd(command, userId) {
       targetAmount: amount,
       maxSlippage: 15.0,
       isActive: true,
-      snipeStatus: "pending"
+      snipeStatus: "pending",
+      autoSell: {
+        enabled: true,
+        takeProfitPercent: 100,
+        stopLossPercent: 50
+      }
     });
 
     await target.save();

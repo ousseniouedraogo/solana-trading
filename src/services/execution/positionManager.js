@@ -174,12 +174,37 @@ class PositionManager {
 
             if (result.success) {
                 position.autoSell.enabled = false; // Disable autoSell after execution
+                position.snipeStatus = 'closed'; // Mark as completely closed
                 position.notes += `\n[Auto-Sell] Sold via ${reason} at ${price}. Tx: ${result.txHash}`;
                 await position.save();
 
-                await sendMessage(adminId, `✅ *Auto-Sell Successful!*\n\n` +
-                    `🪙 **Token:** ${position.tokenSymbol}\n` +
-                    `🔗 [View Transaction](https://solscan.io/tx/${result.txHash})`, { parse_mode: 'Markdown' });
+                // Calculate complete performance
+                const solIn = position.targetAmount;
+                const solOut = result.outputAmount;
+                const netProfit = solOut - solIn;
+                const roi = (netProfit / solIn) * 100;
+                const profitEmoji = netProfit >= 0 ? "🚀" : "📉";
+
+                const reportMessage = `${profitEmoji} *SNIPE COMPLETED (CONSOLIDATED)* ${profitEmoji}\n\n` +
+                    `🪙 **Token:** ${symbol}\n` +
+                    `📅 **Duration:** ${Math.floor((Date.now() - new Date(position.executedAt).getTime()) / 60000)} mins\n\n` +
+                    `📥 **BUY DETAILS**\n` +
+                    `💰 **SOL Spent:** ${solIn.toFixed(4)} SOL\n` +
+                    `💱 **Avg Price:** ${position.executionPrice.toFixed(8)} SOL\n` +
+                    `🔗 [Buy Transaction](https://solscan.io/tx/${position.transactionHash})\n\n` +
+                    `📤 **SELL DETAILS**\n` +
+                    `💰 **SOL Received:** ${solOut.toFixed(4)} SOL\n` +
+                    `💱 **Avg Price:** ${price.toFixed(8)} SOL\n` +
+                    `🔗 [Sell Transaction](https://solscan.io/tx/${result.txHash})\n\n` +
+                    `📊 **PERFORMANCE**\n` +
+                    `💵 **Net Profit:** ${netProfit.toFixed(4)} SOL\n` +
+                    `📈 **ROI:** ${roi.toFixed(2)}%\n\n` +
+                    `*Reason:* ${reason}`;
+
+                await sendMessage(adminId, reportMessage, {
+                    parse_mode: 'Markdown',
+                    disable_web_page_preview: true
+                });
             } else {
                 console.error(`❌ Auto-Sell failed for ${position.tokenSymbol}:`, result.error);
                 await sendMessage(adminId, `❌ *Auto-Sell Failed*\n\n` +

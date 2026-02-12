@@ -66,7 +66,7 @@ const snipeTargetSchema = new mongoose.Schema(
     autoSell: {
       enabled: {
         type: Boolean,
-        default: false,
+        default: true,
       },
       takeProfitPercent: {
         type: Number,
