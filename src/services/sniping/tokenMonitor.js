@@ -354,24 +354,30 @@ class TokenMonitor {
       console.log(`🚀 Processing snipe target: ${target.tokenSymbol} for user ${target.userId}`);
 
       // ✅ DUPLICATE PURCHASE PREVENTION
-      // Check if user already has an executed position for this token
+      // Check if user already has an executed, closed, or IN-PROGRESS position for this token
       const existingPosition = await SnipeTarget.findOne({
         userId: target.userId,
         tokenAddress: target.tokenAddress,
-        snipeStatus: 'executed'
+        snipeStatus: { $in: ['executing', 'executed', 'closed'] },
+        _id: { $ne: target._id } // Don't match ourselves
       });
 
       if (existingPosition) {
-        console.log(`⚠️  User ${target.userId} already has an executed position for ${tokenInfo.symbol}. Skipping duplicate purchase.`);
+        console.log(`⚠️ User ${target.userId} already has a ${existingPosition.snipeStatus} position for ${tokenInfo.symbol}. Skipping duplicate purchase.`);
 
-        // Mark this target as cancelled to prevent future attempts
+        // Mark this target as cancelled
         target.snipeStatus = 'cancelled';
         target.isActive = false;
-        target.notes = `Cancelled: User already owns this token (executed at ${existingPosition.executedAt})`;
+        target.notes = `Cancelled: Found another target for this token with status ${existingPosition.snipeStatus}`;
         await target.save();
 
         return;
       }
+
+      // 🔒 LOCKING THE TARGET
+      // Set status to 'executing' immediately to prevent other concurrent threads from trying
+      target.snipeStatus = 'executing';
+      await target.save();
 
       // Create snipe execution record
       const execution = new SnipeExecution({

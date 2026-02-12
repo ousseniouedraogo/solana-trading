@@ -184,17 +184,28 @@ const executeJupiterSwap = async (swap, customWallet = null) => {
         confirmationStatus = "timeout";
       }
 
-      return {
-        success: true,
-        txHash: executeResponse.signature,
-        message: `Transaction executed successfully: ${inputAmount} ${fromToken.symbol} → ${outputAmount} ${toToken.symbol}`,
-        inputAmount,
-        outputAmount,
-        explorerUrl: `https://solscan.io/tx/${executeResponse.signature}`,
-        confirmationStatus,
-        confirmationTime,
-        executionTime: executeTime
-      };
+      if (confirmationStatus === "confirmed") {
+        return {
+          success: true,
+          txHash: executeResponse.signature,
+          message: `Transaction executed and confirmed successfully: ${inputAmount} ${fromToken.symbol} → ${outputAmount} ${toToken.symbol}`,
+          inputAmount,
+          outputAmount,
+          explorerUrl: `https://solscan.io/tx/${executeResponse.signature}`,
+          confirmationStatus,
+          confirmationTime,
+          executionTime: executeTime
+        };
+      } else {
+        console.warn(`❌ Transaction ${confirmationStatus}: ${executeResponse.signature}`);
+        return {
+          success: false,
+          txHash: executeResponse.signature,
+          error: `Transaction ${confirmationStatus === 'failed' ? 'failed on-chain' : 'failed to confirm (timeout)'}`,
+          confirmationStatus,
+          executionTime: executeTime
+        };
+      }
     } else {
       // Enhanced error handling for different failure types
       let errorMessage = "Swap execution failed";

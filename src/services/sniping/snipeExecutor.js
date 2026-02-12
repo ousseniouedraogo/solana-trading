@@ -186,19 +186,72 @@ const executeSnipe = async (target, execution, tokenInfo, customWallet = null) =
     const executeTime = Date.now() - executeStartTime;
     console.log(`⏱️  Transaction submitted in ${executeTime}ms`);
 
-    // Verification of landing (optional for speed, but good for reporting)
-    // In a pro sniper, you'd move to the next snipe and verify in background
+    // Step 5: Verification of landing
+    console.log("⏳ Verifying transaction landing...");
+    const confirmationStartTime = Date.now();
+    let amountOut = expectedOutputAmount; // Default to expected if verification fails
+    let executionPrice = expectedPrice;
 
-    console.log(`🎉 SNIPE SUBMITTED!`);
-    console.log(`⏱️  Total time to submission: ${Date.now() - executionStartTime}ms`);
-    console.log(`🔗 Transaction: https://solscan.io/tx/${txHash}`);
+    try {
+      // Wait for confirmation
+      const confirmation = await connection.confirmTransaction(txHash, 'confirmed');
 
-    // Simplified success reporting for high speed
+      if (confirmation.value.err) {
+        throw new Error(`Transaction failed on-chain: ${JSON.stringify(confirmation.value.err)}`);
+      }
+
+      console.log(`✅ Transaction confirmed in ${Date.now() - confirmationStartTime}ms`);
+
+      // Get actual balance change to record exactly what we received
+      try {
+        const txDetails = await connection.getParsedTransaction(txHash, {
+          maxSupportedTransactionVersion: 0,
+          commitment: 'confirmed'
+        });
+
+        if (txDetails && txDetails.meta) {
+          const postBalances = txDetails.meta.postTokenBalances || [];
+          const preBalances = txDetails.meta.preTokenBalances || [];
+
+          // Find the balance change for the target token and the user's wallet
+          const tokenBalanceChange = postBalances.find(b =>
+            b.mint === tokenInfo.address &&
+            b.owner === userPublicKey
+          );
+
+          const preTokenBalance = preBalances.find(b =>
+            b.mint === tokenInfo.address &&
+            b.owner === userPublicKey
+          );
+
+          if (tokenBalanceChange) {
+            const preAmount = preTokenBalance ? preTokenBalance.uiTokenAmount.uiAmount : 0;
+            const postAmount = tokenBalanceChange.uiTokenAmount.uiAmount;
+            amountOut = postAmount - preAmount;
+
+            if (amountOut > 0) {
+              executionPrice = parseFloat(target.targetAmount) / amountOut;
+              console.log(`📊 Verified actual output: ${amountOut} ${tokenInfo.symbol} at ${executionPrice.toFixed(8)} SOL`);
+            }
+          }
+        }
+      } catch (parseError) {
+        console.warn("⚠️ Could not parse actual amount from transaction, using estimate:", parseError.message);
+      }
+
+    } catch (confirmationError) {
+      console.error("❌ Failed to verify transaction landing:", confirmationError.message);
+      throw confirmationError; // Re-throw to trigger fail message
+    }
+
+    console.log(`🎉 SNIPE COMPLETED!`);
+    console.log(`⏱️ Total time: ${Date.now() - executionStartTime}ms`);
+
     return {
       success: true,
       txHash: txHash,
-      executionPrice: expectedPrice,
-      amountOut: expectedOutputAmount,
+      executionPrice: executionPrice,
+      amountOut: amountOut,
       executionTime: Date.now() - executionStartTime
     };
 

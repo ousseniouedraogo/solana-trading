@@ -110,6 +110,19 @@ class PositionManager {
         try {
             const adminId = position.userId;
 
+            // Safeguard: Do not attempt to sell if we don't have a recorded amount
+            if (!position.amountReceived || position.amountReceived <= 0) {
+                console.warn(`⚠️ Skipping auto-sell for ${position.tokenSymbol}: No tokens recorded as received (amount: ${position.amountReceived})`);
+
+                // If the buy failed but it's marked executed with 0, we should fix it
+                if (position.snipeStatus === 'executed') {
+                    position.snipeStatus = 'failed';
+                    position.notes += `\n[System] Found executed position with 0 tokens. Marking failed.`;
+                    await position.save();
+                }
+                return;
+            }
+
             // Fetch user's active wallet from database
             // Use the userId from the position record instead of hardcoded adminId
             const userWalletRecord = await UserWallet.findOne({ userId: position.userId, isActive: true });
