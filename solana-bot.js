@@ -1289,18 +1289,16 @@ You haven't added any snipe targets yet.
         hour: '2-digit', minute: '2-digit', hour12: true
       });
 
-      let tokenName = "Token";
-      if (target.tokenAddress === "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v") tokenName = "USDC";
-      else if (target.tokenAddress === "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB") tokenName = "USDT";
-      else if (target.tokenAddress === "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263") tokenName = "BONK";
-      else if (target.tokenAddress === "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN") tokenName = "JUP";
+      const symbol = target.tokenSymbol || "TOKEN";
+      const name = target.tokenName || "Unknown Token";
 
-      const targetMessage = `🎯 **Target #${i + 1} - ${tokenName}**
-
+      const targetMessage = `🎯 **Target #${i + 1} - ${symbol}** (${name})
+      
 📊 **Details:**
 • **Address:** \`${shortAddress}\`
 • **Amount:** ${target.targetAmount} SOL
 • **Slippage:** ${target.maxSlippage}% max
+• **Auto-Sell:** ${target.autoSell?.enabled ? '✅' : '❌'} (${target.autoSell?.takeProfitPercent}% / ${target.autoSell?.stopLossPercent}%)
 • **Status:** ${target.snipeStatus}
 • **Added:** ${formattedDateTime}
 
@@ -1308,7 +1306,7 @@ You haven't added any snipe targets yet.
 
       const removeKeyboard = {
         inline_keyboard: [[{
-          text: `🗑️ Remove This Target`,
+          text: `🗑️ Remove ${symbol}`,
           callback_data: `remove_target_${target.tokenAddress}`
         }]]
       };
@@ -1358,17 +1356,20 @@ You haven't added any snipe targets yet.
 
     targets.forEach((target, index) => {
       const shortAddress = `${target.tokenAddress.substring(0, 8)}...${target.tokenAddress.substring(target.tokenAddress.length - 8)}`;
+      const symbol = target.tokenSymbol || "TOKEN";
+      const name = target.tokenName || "Unknown";
+
       const addedDate = new Date(target.createdAt);
       const formattedDateTime = addedDate.toLocaleString('en-US', {
         year: 'numeric', month: 'short', day: 'numeric',
         hour: '2-digit', minute: '2-digit', hour12: true
       });
 
-      message += `**${index + 1}.** \`${shortAddress}\`\n`;
-      message += `   💰 ${target.targetAmount} SOL\n`;
-      message += `   📊 ${target.maxSlippage}% slippage\n`;
-      message += `   🔄 ${target.snipeStatus}\n`;
-      message += `   📅 Added: ${formattedDateTime}\n\n`;
+      message += `**${index + 1}.** *${symbol}* (${name})\n`;
+      message += `   └ 📍 \`${shortAddress}\`\n`;
+      message += `   └ 💰 ${target.targetAmount} SOL | 📊 ${target.maxSlippage}% slippage\n`;
+      message += `   └ 🔄 Status: ${target.snipeStatus}\n`;
+      message += `   └ 📅 Added: ${formattedDateTime}\n\n`;
     });
 
     message += `**Commands:**\n• \`/snipe_add <token> <amount>\` - Add target\n• \`/snipe_remove <token>\` - Remove target`;
@@ -1384,6 +1385,7 @@ You haven't added any snipe targets yet.
 async function processSnipeHistory(userId) {
   try {
     const history = await SnipeExecution.find({ userId: userId })
+      .populate('targetId')
       .sort({ createdAt: -1 })
       .limit(10);
 
@@ -1398,15 +1400,22 @@ async function processSnipeHistory(userId) {
       const statusIcon = exec.status === "success" ? "✅" : exec.status === "failed" ? "❌" : "⏳";
       const date = new Date(exec.createdAt).toLocaleString();
       const amountStr = exec.amountIn ? exec.amountIn.toFixed(4) : "0.0000";
+      const tokenName = exec.targetId?.tokenName || "Token";
 
-      message += `${index + 1}. ${statusIcon} *${exec.tokenSymbol || 'Unknown'}*\n`;
+      message += `${index + 1}. ${statusIcon} *${exec.tokenSymbol || 'Unknown'}* (${tokenName})\n`;
       message += `   └ 📅 ${date}\n`;
-      message += `   └ 💵 Amount: ${amountStr} SOL\n`;
+      message += `   └ 💰 Buy: ${amountStr} SOL @ ${exec.executionPrice.toFixed(8)} SOL\n`;
 
       if (exec.status === "success") {
         const pnl = exec.profitLoss?.unrealizedPnL || 0;
+        const roi = exec.amountIn > 0 ? (pnl / exec.amountIn) * 100 : 0;
         const pnlEmoji = pnl >= 0 ? "🟢" : "🔴";
-        message += `   └ ${pnlEmoji} PnL: ${pnl.toFixed(4)} SOL\n`;
+
+        message += `   └ 📦 Got: ${exec.amountOut.toFixed(2)} ${exec.tokenSymbol}\n`;
+        message += `   └ ${pnlEmoji} ROI: *${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%* (${pnl.toFixed(4)} SOL)\n`;
+        if (exec.transactionHash) {
+          message += `   └ 🔗 [View Tx](https://solscan.io/tx/${exec.transactionHash})\n`;
+        }
       } else if (exec.status === "failed") {
         message += `   └ 🚨 Error: ${exec.errorDetails?.errorCode || "Unknown"}\n`;
       }
@@ -1482,15 +1491,19 @@ async function processPositions(userId) {
       const profitEmoji = profitPercent >= 0 ? "📈" : "📉";
 
       const symbol = pos.tokenSymbol || "TOKEN";
+      const name = pos.tokenName || "Unknown";
       const amountReceived = pos.amountReceived || 0;
       const costBasis = pos.targetAmount || 0;
       const currentValue = amountReceived * currentPrice;
       const percentStr = `${profitPercent >= 0 ? '+' : ''}${profitPercent.toFixed(1)}%`;
 
-      message += `🔹 *${symbol}*\n`;
+      const timeSinceBuy = pos.executedAt ? Math.floor((Date.now() - new Date(pos.executedAt)) / 60000) : 0;
+
+      message += `🔹 *${symbol}* (${name})\n`;
+      message += `└ 📅 Held: ${timeSinceBuy} mins\n`;
       message += `└ 💰 Entry: ${entryPrice.toFixed(8)} SOL\n`;
-      message += `└ 📦 Qty: ${amountReceived.toFixed(2)}\n`;
-      message += `└ 💵 Value: ${currentValue.toFixed(4)} SOL (from ${costBasis} SOL)\n`;
+      message += `└ 📦 Qty: ${amountReceived.toFixed(2)} ${symbol}\n`;
+      message += `└ 💵 Value: ${currentValue.toFixed(4)} SOL (Spent: ${costBasis.toFixed(4)})\n`;
       message += `└ ${profitEmoji} ROI: *${percentStr}*\n\n`;
 
       keyboard.push([{
