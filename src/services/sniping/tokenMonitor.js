@@ -460,15 +460,27 @@ class TokenMonitor {
     setInterval(async () => {
       try {
         const activeTargets = await SnipeTarget.getActiveTargets();
+        const maxPendingMinutes = parseInt(process.env.MAX_SNIPE_PENDING_MINUTES) || 15;
 
         for (const target of activeTargets) {
-          // Check if target conditions are met
+          // 1. Expiry Check: If target is too old and still pending, cancel it
+          const ageMs = Date.now() - new Date(target.createdAt).getTime();
+          if (ageMs > maxPendingMinutes * 60 * 1000) {
+            console.log(`⏰ Snipe target expired for ${target.tokenSymbol} (${target.tokenAddress})`);
+            target.snipeStatus = 'cancelled';
+            target.isActive = false;
+            target.notes = `Expired: No liquidity detected within ${maxPendingMinutes} minutes.`;
+            await target.save();
+            continue;
+          }
+
+          // 2. Check if target conditions (liquidity) are met
           await this.checkTargetConditions(target);
         }
       } catch (error) {
         console.error("❌ Error processing snipe targets:", error);
       }
-    }, 10000); // Check every 10 seconds
+    }, 3000); // Check every 3 seconds for fast sniping
   }
 
   async checkTargetConditions(target) {
@@ -477,19 +489,31 @@ class TokenMonitor {
       if (target.triggerCondition === 'liquidity_added') {
         const liquidityInfo = await this.getTokenLiquidity(target.tokenAddress);
 
-        if (liquidityInfo && liquidityInfo.totalLiquidity >= target.minLiquidity) {
-          console.log(`💰 Liquidity threshold met for ${target.tokenSymbol}: ${liquidityInfo.totalLiquidity} SOL`);
+        if (!liquidityInfo) {
+          // No liquidity found yet, stay pending
+          return;
+        }
+
+        // Logic normalizing liquidity check:
+        // target.minLiquidity is SOL (default 0). DexScreener returns USD.
+        // If minLiquidity is 0, we proceed as soon as ANY liquidity is found (Jupiter or Dex).
+        const isLiquidEnough = liquidityInfo.isJupiterReady ||
+          (target.minLiquidity === 0 && (liquidityInfo.totalLiquidity > 0)) ||
+          (liquidityInfo.totalLiquidity >= target.minLiquidity);
+
+        if (isLiquidEnough) {
+          const sourceInfo = liquidityInfo.isJupiterReady ? '(Jupiter Ready)' : `(${liquidityInfo.totalLiquidity} USD via Dex)`;
+          console.log(`💰 Liquidity detected for ${target.tokenSymbol} ${sourceInfo}`);
 
           // Market cap filter disabled — snipe immediately when liquidity is found
           console.log(`ℹ️ Liquidity found for ${target.tokenSymbol} — proceeding to snipe.`);
-
 
           const tokenInfo = {
             address: target.tokenAddress,
             symbol: target.tokenSymbol,
             name: target.tokenName,
             decimals: 9, // Default for most tokens
-            poolAddress: liquidityInfo.poolAddress
+            poolAddress: liquidityInfo.poolAddress || target.tokenAddress
           };
 
           await this.processSnipeTarget(target, tokenInfo, 'liquidity_check');
@@ -502,18 +526,51 @@ class TokenMonitor {
 
   async getTokenLiquidity(tokenAddress) {
     try {
-      // Get liquidity info from DexScreener API
-      const response = await axios.get(`https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`, {
-        timeout: 5000
-      });
+      // 1. Try DexScreener API (Standard approach)
+      try {
+        const response = await axios.get(`https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`, {
+          timeout: 4000
+        });
 
-      if (response.data && response.data.pairs && response.data.pairs.length > 0) {
-        // Find the pair with highest liquidity or just the first pair
-        const pair = response.data.pairs[0];
-        return {
-          totalLiquidity: pair.liquidity?.usd || 0,
-          poolAddress: pair.pairAddress
-        };
+        if (response.data && response.data.pairs && response.data.pairs.length > 0) {
+          const pair = response.data.pairs[0];
+          return {
+            totalLiquidity: pair.liquidity?.usd || 0,
+            poolAddress: pair.pairAddress,
+            source: 'dexscreener'
+          };
+        }
+      } catch (e) {
+        // Soft fail for DexScreener
+      }
+
+      // 2. Fallback: Check Jupiter for route availability (Fast and reliable for new tokens)
+      try {
+        if (process.env.JUPITER_LITE_API_URL || true) { // Use Lite API if possible
+          const { getSolanaWallet } = require("../wallets/solana");
+          const wallet = getSolanaWallet();
+
+          // Small amount quote check (0.1 SOL)
+          const amount = 100000000;
+          const quoteUrl = `https://lite-api.jup.ag/ultra/v1/order?inputMint=So11111111111111111111111111111111111111112&outputMint=${tokenAddress}&amount=${amount}&taker=${wallet.publicKey.toString()}&slippageBps=1000`;
+
+          const jupResponse = await axios.get(quoteUrl, {
+            timeout: 3000,
+            headers: { 'User-Agent': 'SolanaSnipeBot/1.0' }
+          });
+
+          if (jupResponse.data && jupResponse.data.transaction) {
+            console.log(`📡 Jupiter confirms route available for ${tokenAddress.substring(0, 8)}...`);
+            return {
+              totalLiquidity: 1000, // Synthetic liquidity value to pass threshold
+              poolAddress: tokenAddress,
+              source: 'jupiter',
+              isJupiterReady: true
+            };
+          }
+        }
+      } catch (e) {
+        // No Jupiter route yet
       }
 
       return null;

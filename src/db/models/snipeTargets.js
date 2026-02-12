@@ -35,8 +35,8 @@ const snipeTargetSchema = new mongoose.Schema(
     },
     minLiquidity: {
       type: Number,
-      default: 5.0, // Minimum 5 SOL liquidity
-      min: 0.1,
+      default: 0, // 0 = snipe as soon as any liquidity is available
+      min: 0,
     },
     maxMarketCap: {
       type: Number,

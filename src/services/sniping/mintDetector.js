@@ -361,11 +361,83 @@ class MintDetector {
                 }
             } else {
                 console.log(`⏳ Token detected but no pool yet. Snipe target remains pending.`);
+                // Start aggressive polling for this token
+                this.startAggressivePolling(tokenAddress, target, userId, customWallet, metadata);
             }
 
         } catch (error) {
             console.error("❌ Error in executeAutoSnipe:", error);
         }
+    }
+
+    /**
+     * Start aggressive polling check for a newly detected token
+     * This bridges the gap between minting and liquidity availability on-chain
+     */
+    async startAggressivePolling(tokenAddress, target, userId, customWallet, metadata) {
+        console.log(`⏰ Starting aggressive polling for ${metadata.symbol} (${tokenAddress.substring(0, 8)})...`);
+
+        let attempts = 0;
+        const maxAttempts = 60; // 1 minute of polling
+        const interval = 2000; // Every 2 seconds
+
+        const pollInterval = setInterval(async () => {
+            attempts++;
+
+            try {
+                // Refresh target from DB to check if it's still pending/active
+                const currentTarget = await SnipeTarget.findById(target._id);
+                if (!currentTarget || !currentTarget.isActive || currentTarget.snipeStatus !== 'pending') {
+                    console.log(`🛑 Stopping aggressive polling for ${metadata.symbol} (Target no longer pending)`);
+                    clearInterval(pollInterval);
+                    return;
+                }
+
+                if (attempts > maxAttempts) {
+                    console.log(`⌛ Aggressive polling finished for ${metadata.symbol}. Handing over to standard monitor.`);
+                    clearInterval(pollInterval);
+                    return;
+                }
+
+                // Check Jupiter route availability (The most real-time way to know if it's tradeable)
+                try {
+                    const { getSolanaWallet } = require("../wallets/solana");
+                    const wallet = customWallet || getSolanaWallet();
+
+                    const amount = 100000000; // 0.1 SOL check
+                    const quoteUrl = `https://lite-api.jup.ag/ultra/v1/order?inputMint=So11111111111111111111111111111111111111112&outputMint=${tokenAddress}&amount=${amount}&taker=${wallet.publicKey.toString()}&slippageBps=1500`;
+
+                    const jupResponse = await axios.get(quoteUrl, {
+                        timeout: 3000,
+                        headers: { 'User-Agent': 'SolanaSnipeBot/1.0' }
+                    });
+
+                    if (jupResponse.data && jupResponse.data.transaction) {
+                        console.log(`⚡ Jupiter route FOUND for ${metadata.symbol}! Executing snipe...`);
+                        clearInterval(pollInterval);
+
+                        const tokenInfo = {
+                            address: tokenAddress,
+                            symbol: metadata.symbol,
+                            name: metadata.name,
+                            decimals: metadata.decimals || 9,
+                            poolAddress: tokenAddress // Fallback
+                        };
+
+                        // Execute directly via tokenMonitor's system
+                        const TokenMonitor = require("./tokenMonitor");
+                        const monitor = new TokenMonitor(); // Ideally we'd use the singleton but this works
+                        await monitor.processSnipeTarget(currentTarget, tokenInfo, 'aggressive_poll');
+                        return;
+                    }
+                } catch (e) {
+                    // No route yet
+                }
+
+            } catch (error) {
+                console.error(`❌ Error in aggressive poll for ${metadata.symbol}:`, error.message);
+            }
+        }, interval);
     }
 
     stop() {
