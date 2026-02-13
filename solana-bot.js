@@ -1299,7 +1299,7 @@ You haven't added any snipe targets yet.
       const targetMessage = `🎯 **Target #${i + 1} - ${symbol}** (${name})
       
 📊 **Details:**
-• **Address:** \`${shortAddress}\`
+• **Address:** \`${target.tokenAddress}\`
 • **Amount:** ${target.targetAmount} SOL
 • **Slippage:** ${target.maxSlippage}% max
 • **Auto-Sell:** ${target.autoSell?.enabled ? '✅' : '❌'} (${target.autoSell?.takeProfitPercent}% / ${target.autoSell?.stopLossPercent}%)
@@ -1370,7 +1370,7 @@ You haven't added any snipe targets yet.
       });
 
       message += `**${index + 1}.** *${symbol}* (${name})\n`;
-      message += `   └ 📍 \`${shortAddress}\`\n`;
+      message += `   └ 📍 \`${target.tokenAddress}\`\n`;
       message += `   └ 💰 ${target.targetAmount} SOL | 📊 ${target.maxSlippage}% slippage\n`;
       message += `   └ 🔄 Status: ${target.snipeStatus}\n`;
       message += `   └ 📅 Added: ${formattedDateTime}\n\n`;

@@ -30,6 +30,8 @@ const getSolanaWallet = () => {
 };
 
 // Create a Solana connection
+const { createReliableConnection } = require("./solanaConnectionWrapper");
+
 const getSolanaConnection = () => {
   try {
     let rpcUrl = process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
@@ -44,7 +46,8 @@ const getSolanaConnection = () => {
       config.wsEndpoint = process.env.SOLANA_WSS_URL;
     }
 
-    return new Connection(rpcUrl, config);
+    // Use the reliable connection wrapper instead of direct Connection
+    return createReliableConnection(rpcUrl, config);
   } catch (error) {
     console.error("Error creating Solana connection:", error);
     throw new Error(`Failed to initialize Solana connection: ${error.message}`);
