@@ -294,7 +294,7 @@ async function handleDeveloperWalletsList(bot, chatId, messageId) {
         let message = `📋 *Developer Wallets List*\n\n`;
 
         wallets.forEach((wallet, index) => {
-            message += `${index + 1}. \`${wallet.address.substring(0, 8)}...${wallet.address.substring(wallet.address.length - 6)}\`\n`;
+            message += `${index + 1}. \`${wallet.address}\`\n`;
             message += `   • Status: ${wallet.isActive ? '✅ Active' : '❌ Inactive'}\n`;
             if (wallet.walletName) {
                 message += `   • Name: ${wallet.walletName}\n`;
@@ -339,7 +339,7 @@ async function handleDeveloperWalletsRemove(bot, chatId, messageId) {
         const keyboard = {
             inline_keyboard: [
                 ...wallets.map(wallet => [{
-                    text: `🗑️ ${wallet.address.substring(0, 12)}...${wallet.address.substring(wallet.address.length - 4)}`,
+                    text: `🗑️ ${wallet.address}`,
                     callback_data: `devs_remove_${wallet.address}`
                 }]),
                 [{ text: "« Back", callback_data: "settings_devs" }]
