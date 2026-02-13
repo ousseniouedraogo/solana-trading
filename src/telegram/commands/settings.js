@@ -227,8 +227,8 @@ const userAwaitingDevAddress = new Map(); // Store users waiting to input addres
 
 async function handleDeveloperWallets(bot, chatId, messageId = null) {
     try {
-        // Get all tracked wallets
-        const wallets = await TrackedWallet.find({ chain: 'solana', role: 'dev_sniper' });
+        // Get active tracked wallets
+        const wallets = await TrackedWallet.find({ chain: 'solana', role: 'dev_sniper', isActive: true });
 
         const keyboard = {
             inline_keyboard: [
@@ -274,7 +274,7 @@ async function handleDeveloperWallets(bot, chatId, messageId = null) {
 
 async function handleDeveloperWalletsList(bot, chatId, messageId) {
     try {
-        const wallets = await TrackedWallet.find({ chain: 'solana', role: 'dev_sniper' }).limit(10);
+        const wallets = await TrackedWallet.find({ chain: 'solana', role: 'dev_sniper', isActive: true }).limit(10);
 
         if (wallets.length === 0) {
             await bot.editMessageText(
@@ -319,7 +319,7 @@ async function handleDeveloperWalletsList(bot, chatId, messageId) {
 
 async function handleDeveloperWalletsRemove(bot, chatId, messageId) {
     try {
-        const wallets = await TrackedWallet.find({ chain: 'solana', role: 'dev_sniper' }).limit(10);
+        const wallets = await TrackedWallet.find({ chain: 'solana', role: 'dev_sniper', isActive: true }).limit(10);
 
         if (wallets.length === 0) {
             await bot.editMessageText(

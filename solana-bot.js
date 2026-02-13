@@ -692,6 +692,13 @@ Click a button below for instant setup, or use manual format.
     } else if (command === "/guide" || command === "📖 Guide") {
       await processGuide(userId);
 
+    } else if (command === "/clear_residuals") {
+      try {
+        const result = await TrackedWallet.deleteMany({ isActive: false });
+        await sendMessage(`✅ *Database Cleanup Complete*\n\nRemoved ${result.deletedCount} inactive/residual wallets from the database.`, 'Markdown', null, userId);
+      } catch (err) {
+        await sendMessage(`❌ *Cleanup Error*\n\n${err.message}`, 'Markdown', null, userId);
+      }
     } else {
       await sendMessage(`❓ *Unknown Command*
 
@@ -1118,19 +1125,16 @@ async function processUntrackWallet(command, userId) {
   const address = parts[1];
 
   try {
-    const result = await TrackedWallet.findOneAndUpdate(
-      { address: address, chain: 'solana', isActive: true },
-      { isActive: false },
-      { new: true }
-    );
+    const result = await TrackedWallet.findOneAndDelete({
+      address: address,
+      chain: 'solana'
+    });
 
     if (result) {
       // Stop real-time monitoring immediately
       mintDetector.unsubscribeFromWallet(address);
-    }
-
-    if (!result) {
-      await sendMessage(`❌ *Wallet Not Found*\n\nNo active tracking found for:\n\`${address}\`\n\nUse \`/list_trackers\` to see tracked wallets.`, 'Markdown', null, userId);
+    } else {
+      await sendMessage(`❌ *Wallet Not Found*\n\nNo tracking found for:\n\`${address}\``, 'Markdown', null, userId);
       return;
     }
 

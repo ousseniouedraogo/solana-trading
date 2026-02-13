@@ -229,9 +229,15 @@ module.exports = {
         );
       }
 
-      // Deactivate the wallet (soft delete)
-      wallet.isActive = false;
-      await wallet.save();
+      // Hard delete the wallet to avoid residual addresses
+      const deleteResult = await TrackedWallet.deleteOne({ address, chain: chainId });
+
+      if (deleteResult.deletedCount === 0) {
+        return bot.sendMessage(
+          chatId,
+          `⚠️ Wallet ${address} on ${chainId} was not found.`
+        );
+      }
 
       bot.sendMessage(
         chatId,
@@ -251,7 +257,8 @@ module.exports = {
 
     try {
       // Get all tracked wallets
-      const wallets = await TrackedWallet.find().sort({ chain: 1 });
+      // Get active tracked wallets only
+      const wallets = await TrackedWallet.find({ isActive: true }).sort({ chain: 1 });
 
       // Get all chains for reference
       const chains = await Chain.find();
@@ -892,8 +899,8 @@ module.exports.removeDevWallet = async (bot, msg, match) => {
       return bot.sendMessage(chatId, `⚠️ Wallet ${address} is not tracked as a Dev Sniper.`);
     }
 
-    wallet.isActive = false;
-    await wallet.save();
+    // Hard delete
+    await TrackedWallet.deleteOne({ address: address, role: 'dev_sniper' });
 
     // Stop monitoring
     const mintDetector = require("../services/sniping/mintDetector");
