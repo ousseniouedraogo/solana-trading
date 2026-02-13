@@ -167,14 +167,19 @@ class MintDetector {
             const logs = tx.meta?.logMessages || [];
             const hasInitializeMint = logs.some(log => log.includes("InitializeMint") || log.includes("InitializeMint2"));
             const hasRaydiumInit = logs.some(log => log.includes("initialize2") || log.includes("InitializeInstruction2"));
+            const hasPumpCreate = logs.some(log => log.includes("Program log: Instruction: Create"));
 
-            if (hasInitializeMint || hasRaydiumInit) {
+            if (hasInitializeMint || hasRaydiumInit || hasPumpCreate) {
                 console.log(`🎯 Detected potential token creation or pool init by tracked wallet ${wallet.address}: ${signature}`);
+
+                let detectType = 'mint';
+                if (hasRaydiumInit) detectType = 'liquidity_init';
+                if (hasPumpCreate) detectType = 'pump_create';
 
                 // Extract token address
                 const tokenAddress = this.extractTokenAddress(tx);
                 if (tokenAddress) {
-                    await this.handleDetectedToken(tokenAddress, wallet, signature, hasRaydiumInit ? 'liquidity_init' : 'mint');
+                    await this.handleDetectedToken(tokenAddress, wallet, signature, detectType);
                 }
             }
         } catch (error) {
@@ -298,6 +303,25 @@ class MintDetector {
             }
 
             await target.save();
+
+            // 2. Fast Path: Immediately check for liquidity instead of waiting for the next interval
+            const tokenMonitor = require("./tokenMonitor");
+            if (tokenMonitor) {
+                console.log(`⚡ Fast-path liquidity check for ${tokenAddress}...`);
+                // We don't await this to keep the detector loop moving
+                setImmediate(async () => {
+                    // Try immediately, then every 1s for 5 times if needed
+                    for (let i = 0; i < 5; i++) {
+                        const liquidity = await tokenMonitor.getTokenLiquidity(tokenAddress);
+                        if (liquidity && (liquidity.isJupiterReady || liquidity.totalLiquidity > 0)) {
+                            console.log(`🎯 Fast-path liquidity success for ${tokenAddress}!`);
+                            await tokenMonitor.checkTargetConditions(target);
+                            break;
+                        }
+                        await new Promise(r => setTimeout(r, 1000));
+                    }
+                });
+            }
             console.log(`✅ Snipe Target created for ${metadata.symbol}`);
 
             // Market cap filter disabled — buy as soon as liquidity is available

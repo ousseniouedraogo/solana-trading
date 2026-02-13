@@ -27,7 +27,7 @@ const getHeliusTokenMetadata = async (tokenMint) => {
                     showFungible: true
                 }
             }
-        });
+        }, { timeout: 2000 });
 
         const asset = response.data?.result;
         if (!asset) {

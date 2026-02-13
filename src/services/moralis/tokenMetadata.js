@@ -47,7 +47,8 @@ const getTokenMetadata = async (tokenMint) => {
                     headers: {
                         "Accept": "application/json",
                         "X-API-Key": moralisApiKey
-                    }
+                    },
+                    timeout: 2000
                 });
 
                 if (response.data) {

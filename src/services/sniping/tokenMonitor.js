@@ -486,7 +486,7 @@ class TokenMonitor {
       } catch (error) {
         console.error("❌ Error processing snipe targets:", error);
       }
-    }, 5000); // Increased to 5 seconds for stability
+    }, 2000); // Reduced to 2 seconds for faster sniping
   }
 
   async checkTargetConditions(target) {
@@ -531,11 +531,21 @@ class TokenMonitor {
   }
 
   async getTokenLiquidity(tokenAddress) {
+    const isPumpToken = tokenAddress.toLowerCase().endsWith('pump');
+
     try {
-      // 1. Try DexScreener API (Standard approach)
+      // 1. If it's a Pump.fun token, TRY JUPITER FIRST (Highest speed)
+      if (isPumpToken) {
+        try {
+          const jupResult = await this.checkJupiterLiquidity(tokenAddress);
+          if (jupResult) return jupResult;
+        } catch (e) { /* ignore and try next */ }
+      }
+
+      // 2. Try DexScreener API (Standard approach)
       try {
         const response = await axios.get(`https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`, {
-          timeout: 4000
+          timeout: 2000 // Reduced timeout
         });
 
         if (response.data && response.data.pairs && response.data.pairs.length > 0) {
@@ -547,36 +557,12 @@ class TokenMonitor {
           };
         }
       } catch (e) {
-        // Soft fail for DexScreener
+        // Soft fail
       }
 
-      // 2. Fallback: Check Jupiter for route availability (Fast and reliable for new tokens)
-      try {
-        if (process.env.JUPITER_LITE_API_URL || true) { // Use Lite API if possible
-          const { getSolanaWallet } = require("../wallets/solana");
-          const wallet = getSolanaWallet();
-
-          // Small amount quote check (0.1 SOL)
-          const amount = 100000000;
-          const quoteUrl = `https://lite-api.jup.ag/ultra/v1/order?inputMint=So11111111111111111111111111111111111111112&outputMint=${tokenAddress}&amount=${amount}&taker=${wallet.publicKey.toString()}&slippageBps=1000`;
-
-          const jupResponse = await axios.get(quoteUrl, {
-            timeout: 3000,
-            headers: { 'User-Agent': 'SolanaSnipeBot/1.0' }
-          });
-
-          if (jupResponse.data && jupResponse.data.transaction) {
-            console.log(`📡 Jupiter confirms route available for ${tokenAddress.substring(0, 8)}...`);
-            return {
-              totalLiquidity: 1000, // Synthetic liquidity value to pass threshold
-              poolAddress: tokenAddress,
-              source: 'jupiter',
-              isJupiterReady: true
-            };
-          }
-        }
-      } catch (e) {
-        // No Jupiter route yet
+      // 3. Fallback/Standard Jupiter check for non-pump tokens
+      if (!isPumpToken) {
+        return await this.checkJupiterLiquidity(tokenAddress);
       }
 
       return null;
@@ -584,6 +570,35 @@ class TokenMonitor {
       console.error(`❌ Error getting token liquidity:`, error.message);
       return null;
     }
+  }
+
+  async checkJupiterLiquidity(tokenAddress) {
+    try {
+      const { getSolanaWallet } = require("../wallets/solana");
+      const wallet = getSolanaWallet();
+
+      // Small amount quote check (0.1 SOL) - verify if route exists
+      const amount = 100000000;
+      const quoteUrl = `https://lite-api.jup.ag/ultra/v1/order?inputMint=So11111111111111111111111111111111111111112&outputMint=${tokenAddress}&amount=${amount}&taker=${wallet.publicKey.toString()}&slippageBps=1000`;
+
+      const jupResponse = await axios.get(quoteUrl, {
+        timeout: 2000, // Reduced timeout
+        headers: { 'User-Agent': 'SolanaSnipeBot/1.0' }
+      });
+
+      if (jupResponse.data && jupResponse.data.transaction) {
+        console.log(`📡 Jupiter confirms route available for ${tokenAddress.substring(0, 8)}...`);
+        return {
+          totalLiquidity: 1000, // Synthetic liquidity value to pass threshold
+          poolAddress: tokenAddress,
+          source: 'jupiter',
+          isJupiterReady: true
+        };
+      }
+    } catch (e) {
+      // No Jupiter route yet
+    }
+    return null;
   }
 
   // Polling fallback methods
