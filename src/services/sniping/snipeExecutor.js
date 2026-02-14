@@ -39,9 +39,12 @@ const executeSnipe = async (target, execution, tokenInfo, customWallet = null) =
     console.log(`🔍 Checking balance for ${target.targetAmount} SOL...`);
 
     // Fast balance check with priority fee consideration
+    // Note: checkSufficientBalance already adds a 0.01 SOL buffer for fees internally
+    const priorityFee = parseFloat(target.priorityFee) || 0.001; // Default to 0.001 if missing
+
     const balanceInfo = await checkSufficientBalance(
       "So11111111111111111111111111111111111111112", // SOL mint
-      (parseFloat(target.targetAmount) + parseFloat(target.priorityFee) + 0.01).toString(), // Add buffer for fees
+      (parseFloat(target.targetAmount) + priorityFee).toString(),
       9
     );
 
