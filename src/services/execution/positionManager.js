@@ -200,6 +200,8 @@ class PositionManager {
 
                 const reportMessage = `${profitEmoji} *SNIPE COMPLETED (CONSOLIDATED)* ${profitEmoji}\n\n` +
                     `🪙 **Token:** ${symbol}\n` +
+                    `📋 **Address:** \`${position.tokenAddress}\`\n` +
+                    (position.devWallet ? `👨‍💻 **Dev/Tracker:** \`${position.devWallet}\`\n` : '') +
                     `📅 **Duration:** ${Math.floor((Date.now() - new Date(position.executedAt).getTime()) / 60000)} mins\n\n` +
                     `📥 **BUY DETAILS**\n` +
                     `💰 **SOL Spent:** ${solIn.toFixed(4)} SOL\n` +

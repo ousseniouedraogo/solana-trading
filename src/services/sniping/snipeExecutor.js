@@ -297,7 +297,8 @@ const executeSnipe = async (target, execution, tokenInfo, customWallet = null) =
       error: userFriendlyMessage,
       errorCategory: errorCategory,
       executionTime: totalExecutionTime,
-      targetAmount: target.targetAmount
+      targetAmount: target.targetAmount,
+      devWallet: target.devWallet
     });
 
     return {
@@ -330,7 +331,9 @@ const sendSnipeNotification = async (userId, data) => {
         `💱 **Price:** ${data.price.toFixed(8)} SOL\n` +
         `📊 **Slippage:** ${data.slippage.toFixed(2)}%\n` +
         `⏱️ **Execution Time:** ${data.executionTime}ms\n` +
-        `🔗 [View Transaction](https://solscan.io/tx/${data.txHash})`;
+        `🔗 [View Transaction](https://solscan.io/tx/${data.txHash})\n\n` +
+        `📋 **Token Address:** \`${data.token.address}\`` +
+        (data.devWallet ? `\n👨‍💻 **Dev/Tracker:** \`${data.devWallet}\`` : '');
     } else {
       message = `❌ *SNIPE ATTEMPT FAILED* ❌\n\n` +
         `🪙 Token: ${data.token.symbol}\n` +

@@ -1169,7 +1169,7 @@ async function processSnipeAdd(command, userId) {
   const tokenAddress = parts[1];
   const amount = parts[2] ? parseFloat(parts[2]) : 0.011;
   const tp = parts[3] ? parseFloat(parts[3]) : 50;
-  const sl = parts[4] ? parseFloat(parts[4]) : 25;
+  const sl = parts[4] ? parseFloat(parts[4]) : 20;
 
   if (isNaN(amount) || amount < 0.001) {
     await sendMessage("❌ *Invalid Amount*\n\nMinimum amount is 0.001 SOL", 'Markdown', null, userId);

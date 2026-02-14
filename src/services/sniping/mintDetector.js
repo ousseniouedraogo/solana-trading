@@ -291,7 +291,8 @@ class MintDetector {
                     enabled: true,
                     takeProfitPercent: tp,
                     stopLossPercent: sl
-                }
+                },
+                devWallet: wallet.address
             });
 
             target.notes = `[Auto-Snipe] Last activity by ${wallet.address} via ${type}`;

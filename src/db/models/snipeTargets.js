@@ -29,7 +29,7 @@ const snipeTargetSchema = new mongoose.Schema(
     maxSlippage: {
       type: Number,
       required: true,
-      default: 15.0,
+      default: 17.0,
       min: 0.5,
       max: 50.0,
     },
@@ -70,12 +70,12 @@ const snipeTargetSchema = new mongoose.Schema(
       },
       takeProfitPercent: {
         type: Number,
-        default: 100, // 100% profit target
+        default: 50, // 50% profit target
         min: 10,
       },
       stopLossPercent: {
         type: Number,
-        default: 50, // 50% stop loss
+        default: 20, // 20% stop loss
         min: 10,
         max: 90,
       },
@@ -111,6 +111,11 @@ const snipeTargetSchema = new mongoose.Schema(
     notes: {
       type: String,
       default: "",
+    },
+    devWallet: {
+      type: String,
+      default: null,
+      index: true,
     },
   },
   {
