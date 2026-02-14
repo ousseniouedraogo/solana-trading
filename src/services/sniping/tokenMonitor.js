@@ -471,11 +471,14 @@ class TokenMonitor {
         for (const target of activeTargets) {
           // 1. Expiry Check: If target is too old and still pending, cancel it
           const ageMs = Date.now() - new Date(target.createdAt).getTime();
-          if (ageMs > maxPendingMinutes * 60 * 1000) {
-            console.log(`⏰ Snipe target expired for ${target.tokenSymbol} (${target.tokenAddress})`);
+          // Use stricter MAX_SNIPE_AGE_SECONDS if set, otherwise fallback to minutes
+          const maxAgeSeconds = parseInt(process.env.MAX_SNIPE_AGE_SECONDS) || (15 * 60);
+
+          if (ageMs > maxAgeSeconds * 1000) {
+            console.log(`⏰ Snipe target expired for ${target.tokenSymbol} (${target.tokenAddress}) - exceeded ${maxAgeSeconds}s window`);
             target.snipeStatus = 'cancelled';
             target.isActive = false;
-            target.notes = `Expired: No liquidity detected within ${maxPendingMinutes} minutes.`;
+            target.notes = `Expired: No liquidity detected within ${maxAgeSeconds} seconds.`;
             await target.save();
             continue;
           }
